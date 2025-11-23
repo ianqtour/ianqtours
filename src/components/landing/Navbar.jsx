@@ -53,7 +53,8 @@ const Navbar = () => {
       transition={{ duration: 0.5 }}
     >
       <div className="container mx-auto flex items-center justify-between p-4">
-        <RouterLink to="/" className="text-2xl font-bold text-white">
+        <RouterLink to="/" className="flex items-center gap-2 text-2xl font-bold text-white">
+          <img src="https://ujowugielrmzvmwqenhb.supabase.co/storage/v1/object/public/excursoes/logo-ianq.png" alt="IanqTour Logo" className="h-8 w-8" />
           <span className="text-[#ECAE62]">IanqTour</span>
         </RouterLink>
 

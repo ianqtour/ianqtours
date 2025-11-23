@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link as ScrollLink } from 'react-scroll';
 import { Link as RouterLink } from 'react-router-dom';
-import { Instagram, Facebook, Youtube } from 'lucide-react';
+import { Instagram, Mail, Phone } from 'lucide-react';
 
 const Footer = () => {
   return (
@@ -23,13 +23,17 @@ const Footer = () => {
         <div>
           <h4 className="text-lg font-semibold text-white mb-4">Siga-nos</h4>
           <div className="flex space-x-4">
-            <a href="#" className="hover:text-[#ECAE62] transition-colors"><Instagram /></a>
-            <a href="#" className="hover:text-[#ECAE62] transition-colors"><Facebook /></a>
-            <a href="#" className="hover:text-[#ECAE62] transition-colors"><Youtube /></a>
+            <a href="https://www.instagram.com/ianqtour_excursoes" className="hover:text-[#ECAE62] transition-colors"><Instagram /></a>
           </div>
           <h4 className="text-lg font-semibold text-white mt-6 mb-4">Contato</h4>
-          <p>contato@ianqtour.com</p>
-          <p>(11) 98765-4321</p>
+          <div className="flex items-center gap-2 mb-2">
+            <Mail className="h-5 w-5 text-[#ECAE62]" />
+            <p>contato@ianqtour.com.br</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Phone className="h-5 w-5 text-[#ECAE62]" />
+            <a href="https://wa.me/5588994235525?text=Olá! Quero saber mais sobre as excursões." className="hover:text-[#ECAE62] transition-colors">(88) 9 9423-5525</a>
+          </div>
         </div>
       </div>
       <div className="container mx-auto text-center mt-12 border-t border-white/10 pt-8">

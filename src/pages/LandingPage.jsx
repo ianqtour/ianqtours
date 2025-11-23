@@ -83,73 +83,30 @@ const LandingPage = () => {
 
   const testimonials = [
     {
-      name: 'Ana Clara',
-      review: 'A melhor viagem da minha vida! A organização da IanqTour foi impecável, e o destino era ainda mais bonito pessoalmente. Já estou planejando a próxima!',
-      image: 'mulher sorrindo em uma paisagem de montanha',
+      name: 'Helen Cavalcante',
+      review: 'Foi maravilhoso, que venham as próximas vezes. 😍👏',
+      image: 'https://ujowugielrmzvmwqenhb.supabase.co/storage/v1/object/public/excursoes/hellen-comment.jpg',
     },
     {
-      name: 'Bruno Martins',
-      review: 'Tudo perfeito, desde o atendimento inicial até o último dia da excursão. O guia era super atencioso e o grupo muito animado. Recomendo de olhos fechados!',
-      image: 'homem com mochila em uma trilha na floresta',
+      name: 'Tatyana Lima',
+      review: 'Equipe maravilhosa, obrigada por proporcionar esse momentos incríveis 😍👏👏',
+      image: 'https://ujowugielrmzvmwqenhb.supabase.co/storage/v1/object/public/excursoes/taty-comment.jpg',
     },
     {
-      name: 'Juliana Costa',
-      review: 'Experiência fantástica! O ônibus era muito confortável e os passeios superaram minhas expectativas. A IanqTour realmente sabe como criar momentos inesquecíveis.',
-      image: 'mulher tirando uma selfie em uma praia tropical',
+      name: 'Ant° Vasconcelos',
+      review: 'Que viagem maravilhosa, incrível. Só parabenizar agradecer ao @ianqtur_excursoes por proporcionar momentos como esses. É o melhor de Sobral!',
+      image: 'https://ujowugielrmzvmwqenhb.supabase.co/storage/v1/object/public/excursoes/antonio.jpg',
     },
   ];
 
   const stats = [
-    { label: 'Viajantes Felizes', value: '12k+' },
-    { label: 'Destinos', value: '85+' },
+    { label: 'Aventureiros felizes', value: '4k+' },
+    { label: 'Destinos', value: '30+' },
     { label: 'Avaliações 5★', value: '4.9/5' },
-    { label: 'Anos de Experiência', value: '8+' },
+    { label: 'Anos de experiência', value: '3+' }
   ];
 
-  const featuredDestinations = [
-    {
-      title: 'Praias Paradisíacas',
-      location: 'Nordeste do Brasil',
-      image: 'https://images.pexels.com/photos/457882/pexels-photo-457882.jpeg?auto=compress&cs=tinysrgb&w=1920',
-      tag: 'Sol & Mar',
-      description: 'Areias brancas, mar cristalino e pôr do sol inesquecível.',
-    },
-    {
-      title: 'Chapada dos Veadeiros',
-      location: 'Goiás',
-      image: 'https://images.pexels.com/photos/1552212/pexels-photo-1552212.jpeg?auto=compress&cs=tinysrgb&w=1920',
-      tag: 'Natureza',
-      description: 'Trilhas, cânions e cachoeiras de tirar o fôlego.',
-    },
-    {
-      title: 'Cidades Históricas',
-      location: 'Minas Gerais',
-      image: 'https://images.pexels.com/photos/1646172/pexels-photo-1646172.jpeg?auto=compress&cs=tinysrgb&w=1920',
-      tag: 'Cultura',
-      description: 'Arquitetura colonial e histórias que atravessam séculos.',
-    },
-    {
-      title: 'Serra Gaúcha',
-      location: 'Rio Grande do Sul',
-      image: 'https://images.pexels.com/photos/5734655/pexels-photo-5734655.jpeg?auto=compress&cs=tinysrgb&w=1920',
-      tag: 'Montanha',
-      description: 'Paisagens europeias, vinhos premiados e clima acolhedor.',
-    },
-    {
-      title: 'Foz do Iguaçu',
-      location: 'Paraná',
-      image: 'https://images.pexels.com/photos/338504/pexels-photo-338504.jpeg?auto=compress&cs=tinysrgb&w=1920',
-      tag: 'Cachoeiras',
-      description: 'A grandiosidade das cataratas em um espetáculo natural único.',
-    },
-    {
-      title: 'Fernando de Noronha',
-      location: 'Pernambuco',
-      image: 'https://images.pexels.com/photos/221455/pexels-photo-221455.jpeg?auto=compress&cs=tinysrgb&w=1920',
-      tag: 'Paraíso',
-      description: 'Santuário de vida marinha com águas azul-turquesa.',
-    },
-  ];
+  const [featuredDestinations, setFeaturedDestinations] = useState([]);
 
   const steps = [
     { icon: <Compass className="h-6 w-6" />, title: 'Escolha o destino', desc: 'Descubra roteiros exclusivos e experiências únicas.' },
@@ -159,11 +116,33 @@ const LandingPage = () => {
   ];
 
   useEffect(() => {
+    const fetchFeaturedDestinations = async () => {
+      const { data, error } = await supabase
+        .from('destinos_em_destaque')
+        .select('*');
+
+      if (error) {
+        console.error('Erro ao buscar destinos em destaque:', error);
+      } else {
+        setFeaturedDestinations(data.map(item => ({
+          title: item.name,
+          location: item.location,
+          image: item.image_url,
+          tag: item.tag,
+          description: item.description,
+        })));
+      }
+    };
+    fetchFeaturedDestinations();
+  }, []);
+
+  useEffect(() => {
+    if (featuredDestinations.length === 0) return;
     const interval = setInterval(() => {
       setCurrentHighlight((i) => (i + 1) % featuredDestinations.length);
     }, 4500);
     return () => clearInterval(interval);
-  }, [featuredDestinations.length]);
+  }, [featuredDestinations.length, featuredDestinations]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
@@ -308,48 +287,54 @@ const LandingPage = () => {
           <p className="text-lg text-white/70 mb-8 sm:mb-12 max-w-3xl mx-auto text-center">Algumas das experiências que já realizamos e amamos compartilhar.</p>
 
           <div className="relative max-w-5xl mx-auto">
-            <motion.div
-              key={featuredDestinations[currentHighlight].title}
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.5 }}
-              className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 ring-1 ring-white/10"
-            >
-              <div className="relative">
-                <img src={featuredDestinations[currentHighlight].image} alt={featuredDestinations[currentHighlight].title} className="w-full h-64 md:h-80 lg:h-96 object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
-                <div className="absolute top-4 left-4 bg-[#ECAE62]/80 text-[#123F4E] font-bold px-3 py-1 rounded-full text-sm flex items-center gap-2">
-                  <MapPin className="h-4 w-4" /> {featuredDestinations[currentHighlight].tag}
+            {featuredDestinations.length > 0 && (
+              <motion.div
+                key={featuredDestinations[currentHighlight].title}
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.5 }}
+                className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 ring-1 ring-white/10"
+              >
+                <div className="relative">
+                  <img src={featuredDestinations[currentHighlight].image} alt={featuredDestinations[currentHighlight].title} className="w-full h-64 md:h-80 lg:h-96 object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+                  <div className="absolute top-4 left-4 bg-[#ECAE62]/80 text-[#123F4E] font-bold px-3 py-1 rounded-full text-sm flex items-center gap-2">
+                    <MapPin className="h-4 w-4" /> {featuredDestinations[currentHighlight].tag}
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
+                    <h3 className="text-2xl sm:text-3xl font-bold">{featuredDestinations[currentHighlight].title}</h3>
+                    <p className="text-white/80 mt-1 flex items-center gap-2"><Globe2 className="h-4 w-4 text-[#ECAE62]" /> {featuredDestinations[currentHighlight].location}</p>
+                    <p className="text-white/80 mt-3 max-w-2xl">{featuredDestinations[currentHighlight].description}</p>
+                  </div>
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
-                  <h3 className="text-2xl sm:text-3xl font-bold">{featuredDestinations[currentHighlight].title}</h3>
-                  <p className="text-white/80 mt-1 flex items-center gap-2"><Globe2 className="h-4 w-4 text-[#ECAE62]" /> {featuredDestinations[currentHighlight].location}</p>
-                  <p className="text-white/80 mt-3 max-w-2xl">{featuredDestinations[currentHighlight].description}</p>
-                </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            )}
 
-            <div className="absolute inset-y-0 left-0 hidden sm:flex items-center p-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="bg-white/10 hover:bg-white/20 text-white"
-                onClick={() => setCurrentHighlight((i) => (i - 1 + featuredDestinations.length) % featuredDestinations.length)}
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-            </div>
-            <div className="absolute inset-y-0 right-0 hidden sm:flex items-center p-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="bg-white/10 hover:bg-white/20 text-white"
-                onClick={() => setCurrentHighlight((i) => (i + 1) % featuredDestinations.length)}
-              >
-                <ChevronRight className="h-5 w-5" />
-              </Button>
-            </div>
+            {featuredDestinations.length > 0 && (
+              <div className="absolute inset-y-0 left-0 hidden sm:flex items-center p-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="bg-white/10 hover:bg-white/20 text-white"
+                  onClick={() => setCurrentHighlight((i) => (i - 1 + featuredDestinations.length) % featuredDestinations.length)}
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+              </div>
+            )}
+            {featuredDestinations.length > 0 && (
+              <div className="absolute inset-y-0 right-0 hidden sm:flex items-center p-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="bg-white/10 hover:bg-white/20 text-white"
+                  onClick={() => setCurrentHighlight((i) => (i + 1) % featuredDestinations.length)}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+              </div>
+            )}
 
             <div className="mt-4 flex justify-center gap-2">
               {featuredDestinations.map((_, idx) => (
@@ -507,7 +492,7 @@ const LandingPage = () => {
       {/* Testimonials Section */}
       <section id="depoimentos" className="py-16 sm:py-20 px-4 bg-white/5">
         <div className="container mx-auto text-center">
-          <h2 className="text-4xl font-bold mb-4 text-[#ECAE62]">O que nossos viajantes dizem</h2>
+          <h2 className="text-4xl font-bold mb-4 text-[#ECAE62]">O que nossos aventureiros dizem</h2>
           <p className="text-lg text-white/70 mb-12 max-w-3xl mx-auto">A satisfação de quem viaja conosco é nossa maior recompensa.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
             {testimonials.map((testimonial, index) => (
@@ -521,7 +506,7 @@ const LandingPage = () => {
               >
                 <div className="flex items-center mb-4">
                   <div className="w-16 h-16 rounded-full overflow-hidden mr-4 border-2 border-[#ECAE62]">
-                  <img className="w-full h-full object-cover" alt={testimonial.name} src="https://images.unsplash.com/photo-1595872018818-97555653a011" />
+                  <img className="w-full h-full object-cover" alt={testimonial.name} src={testimonial.image} />
                   </div>
                   <div>
                     <h4 className="text-xl font-bold text-white">{testimonial.name}</h4>
