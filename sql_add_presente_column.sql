@@ -9,3 +9,4 @@ ADD COLUMN presente BOOLEAN DEFAULT NULL;
 -- TRUE = passageiro está presente
 -- FALSE = passageiro está ausente
 
+
