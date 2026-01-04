@@ -6,6 +6,7 @@ import { ArrowLeft, LogOut, PlusCircle } from 'lucide-react';
 import ExcursionManagement from '@/components/admin/ExcursionManagement';
 import BusManagement from '@/components/admin/BusManagement';
 import ReservationManagement from '@/components/admin/ReservationManagement';
+import FinanceManagement from '@/components/admin/FinanceManagement';
 
 const AdminPanel = ({ onLogout, onBack, onStartReservation, role = 'admin' }) => {
   const [tab, setTab] = React.useState(role === 'admin' ? 'excursions' : 'reservations')
@@ -56,7 +57,7 @@ const AdminPanel = ({ onLogout, onBack, onStartReservation, role = 'admin' }) =>
 
           <Tabs value={tab} onValueChange={setTab} className="w-full">
             {role === 'admin' ? (
-              <TabsList className="grid w-full grid-cols-3 bg-white/5 mb-4 md:mb-8">
+              <TabsList className="grid w-full grid-cols-4 bg-white/5 mb-4 md:mb-8">
                 <TabsTrigger value="excursions" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
                   Excursões
                 </TabsTrigger>
@@ -65,6 +66,9 @@ const AdminPanel = ({ onLogout, onBack, onStartReservation, role = 'admin' }) =>
                 </TabsTrigger>
                 <TabsTrigger value="reservations" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
                   Reservas
+                </TabsTrigger>
+                <TabsTrigger value="finance" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
+                  Financeiro
                 </TabsTrigger>
               </TabsList>
             ) : (
@@ -90,6 +94,12 @@ const AdminPanel = ({ onLogout, onBack, onStartReservation, role = 'admin' }) =>
             <TabsContent value="reservations">
               <ReservationManagement allowCancel={role === 'admin'} />
             </TabsContent>
+
+            {role === 'admin' && (
+              <TabsContent value="finance">
+                <FinanceManagement />
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </motion.div>

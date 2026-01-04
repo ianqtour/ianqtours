@@ -19,7 +19,53 @@ const LandingPage = () => {
   useEffect(() => {
     const loadTours = async () => {
       const { data } = await supabase.from('excursoes').select('*').order('horario_partida', { ascending: true });
-      const mapped = (data || []).map((row) => ({
+
+      const exList = data || [];
+      const exIds = exList.map(r => r.id);
+      let busByExc = {};
+      let availByExc = {};
+
+      if (exIds.length) {
+        const { data: buses } = await supabase
+          .from('onibus')
+          .select('id,excursao_id,total_assentos')
+          .in('excursao_id', exIds);
+
+        const busIds = (buses || []).map(b => b.id);
+        (buses || []).forEach(b => {
+          busByExc[b.excursao_id] = (busByExc[b.excursao_id] || []).concat(b);
+        });
+
+        if (busIds.length) {
+          const { data: seats } = await supabase
+            .from('assentos_onibus')
+            .select('onibus_id,status')
+            .in('onibus_id', busIds);
+
+          const byBus = {};
+          (seats || []).forEach(s => {
+            byBus[s.onibus_id] = (byBus[s.onibus_id] || []).concat(s);
+          });
+
+          exIds.forEach(exId => {
+            const busesForExc = busByExc[exId] || [];
+            if (busesForExc.length) {
+              let count = 0;
+              busesForExc.forEach(b => {
+                const ss = byBus[b.id] || [];
+                if (ss.length) {
+                  count += ss.filter(s => s.status !== 'ocupado').length;
+                } else {
+                  count += Number(b.total_assentos) || 0;
+                }
+              });
+              availByExc[exId] = count;
+            }
+          });
+        }
+      }
+
+      const mapped = exList.map((row) => ({
         id: row.id,
         name: row.nome,
         description: row.descricao,
@@ -27,7 +73,7 @@ const LandingPage = () => {
         date: row.horario_partida,
         price: Number(row.preco),
         image: row.imagem_url || '',
-        availableSeats: Number(row.assentos_disponiveis || 0),
+        availableSeats: availByExc[row.id] ?? null,
       }));
       const upcoming = mapped.filter(t => new Date(t.date) >= new Date());
       setTours(upcoming.slice(0, 6));
