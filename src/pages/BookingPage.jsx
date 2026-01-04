@@ -64,22 +64,28 @@ import { getUserRole } from '@/lib/authRole'
   }
 
   const handleAdminLogout = async () => {
-    await supabase.auth.signOut()
+    try {
+      await supabase.auth.signOut({ scope: 'local' })
+    } catch {}
     setIsAdminLoggedIn(false)
     setIsAdmin(false)
-    navigate('/')
+    navigate('/', { replace: true })
+    setTimeout(() => {
+      if (window.location.pathname === '/admin') {
+        window.location.assign('/')
+      }
+    }, 50)
   }
 
   return (
     <>
       <div className="sticky top-0 z-40 bg-white/10 backdrop-blur-md border-b border-white/10">
         <div className="container mx-auto px-3 py-3 flex items-center justify-between">
-          <RouterLink to="/" className="text-xl font-bold">
+          <RouterLink to="/" className="flex items-center gap-2 text-2xl font-bold text-white">
+            <img src="https://ujowugielrmzvmwqenhb.supabase.co/storage/v1/object/public/excursoes/logo-ianq.png" alt="IanqTour Logo" className="h-8 w-8" />
             <span className="text-[#ECAE62]">IanqTour</span>
           </RouterLink>
-          
         </div>
-        
       </div>
       {!isAdmin ? (
         <UserFlow onAdminClick={() => setIsAdmin(true)} initialExcursion={location.state?.selectedExcursion} />
