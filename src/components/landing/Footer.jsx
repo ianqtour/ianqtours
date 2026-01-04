@@ -2,6 +2,7 @@ import React from 'react';
 import { Link as ScrollLink } from 'react-scroll';
 import { Link as RouterLink } from 'react-router-dom';
 import { Instagram, Mail, Phone } from 'lucide-react';
+import { buildWhatsAppUrl } from '@/lib/whatsapp';
 
 const Footer = () => {
   return (
@@ -32,7 +33,7 @@ const Footer = () => {
           </div>
           <div className="flex items-center gap-2">
             <Phone className="h-5 w-5 text-[#ECAE62]" />
-            <a href="https://wa.me/5588994235525?text=Olá! Quero saber mais sobre as excursões." className="hover:text-[#ECAE62] transition-colors">(88) 9 9423-5525</a>
+            <a href={buildWhatsAppUrl('Olá! Quero saber mais sobre as excursões.')} className="hover:text-[#ECAE62] transition-colors">(88) 9 9423-5525</a>
           </div>
         </div>
       </div>

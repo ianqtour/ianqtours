@@ -3,9 +3,9 @@ import { Link as ScrollLink } from 'react-scroll';
 import { Link as RouterLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ArrowLeft } from 'lucide-react';
 
-const Navbar = () => {
+const Navbar = ({ adminBackAction, disableDesktopButtons = false, disableMobileMenu = false }) => {
   const [scrolled, setScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -58,29 +58,44 @@ const Navbar = () => {
           <span className="text-[#ECAE62]">IanqTour</span>
         </RouterLink>
 
-        
-
         <div className="hidden md:flex items-center gap-3">
-          <Button asChild className="bg-[#ECAE62] text-[#0B1420] font-semibold hover:bg-[#FFD27A] hover:text-[#0B1420] ring-2 ring-[#ECAE62]/40 shadow-[0_0_20px_rgba(236,174,98,0.3)]">
-            <RouterLink to="/excursoes">Ver Excursões</RouterLink>
-          </Button>
-          <Button asChild className="bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20">
-            <RouterLink to="/meus-ingressos">Meus Ingressos</RouterLink>
-          </Button>
-          <Button asChild className="bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20">
-            <RouterLink to="/admin">Área Admin</RouterLink>
-          </Button>
+          {adminBackAction && (
+            <Button onClick={adminBackAction} variant="ghost" size="icon" className="text-white hover:bg-white/10" aria-label="Voltar para Admin" title="Voltar para Admin">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
         </div>
 
+        {!disableDesktopButtons && (
+          <div className={`hidden md:flex items-center gap-3 ${adminBackAction ? 'ml-2' : ''}`}>
+            <Button asChild className="bg-[#ECAE62] text-[#0B1420] font-semibold hover:bg-[#FFD27A] hover:text-[#0B1420] ring-2 ring-[#ECAE62]/40 shadow-[0_0_20px_rgba(236,174,98,0.3)]">
+              <RouterLink to="/excursoes">Ver Excursões</RouterLink>
+            </Button>
+            <Button asChild className="bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20">
+              <RouterLink to="/meus-ingressos">Meus Ingressos</RouterLink>
+            </Button>
+            <Button asChild className="bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20">
+              <RouterLink to="/admin">Área Admin</RouterLink>
+            </Button>
+          </div>
+        )}
+
         <div className="md:hidden">
-          <Button onClick={() => setIsMenuOpen(!isMenuOpen)} variant="ghost" size="icon" className="text-white">
-            {isMenuOpen ? <X /> : <Menu />}
-          </Button>
+          {adminBackAction && (
+            <Button onClick={adminBackAction} variant="ghost" size="icon" className="text-white mr-2" aria-label="Voltar para Admin" title="Voltar para Admin">
+              <ArrowLeft />
+            </Button>
+          )}
+          {!disableMobileMenu && (
+            <Button onClick={() => setIsMenuOpen(!isMenuOpen)} variant="ghost" size="icon" className="text-white">
+              {isMenuOpen ? <X /> : <Menu />}
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Mobile Menu */}
-      {isMenuOpen && (
+      {!disableMobileMenu && isMenuOpen && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}

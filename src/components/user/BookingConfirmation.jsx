@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Calendar, MapPin, Bus, Users, Download } from 'lucide-react';
+import { CheckCircle, Calendar, MapPin, Bus, Users } from 'lucide-react';
 
-const BookingConfirmation = ({ bookingId, excursion, bus, seats, passengers, ticketUrl, onReset }) => {
+const BookingConfirmation = ({ bookingId, excursion, bus, seats, passengers, onReset }) => {
   const formatDateHour = (s) => {
     if (!s) return ''
     const d = new Date(s)
@@ -86,15 +86,6 @@ const BookingConfirmation = ({ bookingId, excursion, bus, seats, passengers, tic
               className="flex-1 bg-[#ECAE62] hover:bg-[#8C641C] text-[#0B1420] text-base py-3 md:text-lg md:py-6"
             >
               Reservar novamente
-            </Button>
-            <Button
-              variant="ghost"
-              className="flex-1 bg-transparent border border-white/30 text-white hover:bg-white/10 text-base py-3 md:text-lg md:py-6"
-              onClick={() => { if (ticketUrl) { window.open(ticketUrl, '_blank') } }}
-              disabled={!ticketUrl}
-            >
-              <Download className="mr-2 h-5 w-5" />
-              Baixar Ingresso
             </Button>
           </div>
         </div>

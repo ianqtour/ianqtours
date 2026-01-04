@@ -3,9 +3,8 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Camera, User } from 'lucide-react';
+import { ArrowLeft, User } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import WebcamModal from '@/components/WebcamModal';
 
 const PassengerRegistration = ({ seats, onSubmit, onBack, initialCpf }) => {
   const [passengers, setPassengers] = useState(
@@ -14,11 +13,9 @@ const PassengerRegistration = ({ seats, onSubmit, onBack, initialCpf }) => {
       name: '',
       cpf: initialCpf || '',
       birthDate: '',
-      phone: '',
-      photo: null
+      phone: ''
     }))
   );
-  const [currentPassengerIndex, setCurrentPassengerIndex] = useState(null);
   const { toast } = useToast();
 
   const formatCpf = (v) => {
@@ -99,21 +96,14 @@ const PassengerRegistration = ({ seats, onSubmit, onBack, initialCpf }) => {
     setPassengers(updated);
   };
 
-  const handlePhotoCapture = (photoData) => {
-    const updated = [...passengers];
-    updated[currentPassengerIndex].photo = photoData;
-    setPassengers(updated);
-    setCurrentPassengerIndex(null);
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    const incomplete = passengers.find(p => !p.name || !p.cpf || !validateCpf(p.cpf) || !validateBirthDate(p.birthDate) || !p.phone || !p.photo);
+    const incomplete = passengers.find(p => !p.name || !p.cpf || !validateCpf(p.cpf) || !validateBirthDate(p.birthDate) || !p.phone);
     if (incomplete) {
       toast({
         title: "Informação Incompleta",
-        description: "Preencha todos os campos corretamente (CPF válido) e capture a foto.",
+        description: "Preencha todos os campos corretamente (CPF válido).",
         variant: "destructive",
       });
       return;
@@ -157,20 +147,7 @@ const PassengerRegistration = ({ seats, onSubmit, onBack, initialCpf }) => {
                   <User className="mr-2 h-5 w-5 text-[#ECAE62]" />
                   Passageiro {index + 1} - Assento {passenger.seatNumber}
                 </h3>
-                {passenger.photo && (
-                  <div className="hidden md:block w-12 h-12 rounded-full overflow-hidden border-2 border-[#ECAE62]">
-                    <img src={passenger.photo} alt="Passageiro" className="w-full h-full object-cover" />
-                  </div>
-                )}
               </div>
-
-              {passenger.photo && (
-                <div className="md:hidden flex justify-center mb-4">
-                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-[#ECAE62]">
-                    <img src={passenger.photo} alt="Passageiro" className="w-full h-full object-cover" />
-                  </div>
-                </div>
-              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4">
                 <div className="space-y-2">
@@ -232,17 +209,6 @@ const PassengerRegistration = ({ seats, onSubmit, onBack, initialCpf }) => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-white">Foto</Label>
-                  <Button
-                    type="button"
-                    onClick={() => setCurrentPassengerIndex(index)}
-                    className={`w-full ${passenger.photo ? 'bg-green-500 hover:bg-green-600' : 'bg-[#ECAE62] hover:bg-[#FFD27A] text-[#0B1420]'} `}
-                  >
-                    <Camera className="mr-2 h-4 w-4" />
-                    {passenger.photo ? 'Tirar Outra Foto' : 'Capturar Foto'}
-                  </Button>
-                </div>
               </div>
             </motion.div>
           ))}
@@ -255,12 +221,6 @@ const PassengerRegistration = ({ seats, onSubmit, onBack, initialCpf }) => {
           </Button>
         </form>
 
-        {currentPassengerIndex !== null && (
-          <WebcamModal
-            onCapture={handlePhotoCapture}
-            onClose={() => setCurrentPassengerIndex(null)}
-          />
-        )}
       </div>
     </div>
   );

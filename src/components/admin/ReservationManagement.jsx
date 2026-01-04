@@ -15,7 +15,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-const ReservationManagement = () => {
+const ReservationManagement = ({ allowCancel = true }) => {
   const [bookings, setBookings] = useState([]);
   const [excursions, setExcursions] = useState([]);
   const [buses, setBuses] = useState([]);
@@ -50,15 +50,15 @@ const ReservationManagement = () => {
 
   const formatBirthDate = (dateStr) => {
     if (!dateStr) return ''
-    try {
-      const date = new Date(dateStr)
-      const dd = String(date.getDate()).padStart(2, '0')
-      const mm = String(date.getMonth() + 1).padStart(2, '0')
-      const yyyy = date.getFullYear()
-      return `${dd}/${mm}/${yyyy}`
-    } catch {
-      return dateStr
-    }
+    const s = String(dateStr)
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`
+    const first10 = s.slice(0, 10)
+    const mIso = first10.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (mIso) return `${mIso[3]}/${mIso[2]}/${mIso[1]}`
+    const mBr = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+    if (mBr) return s
+    return s
   }
 
   const fetchPassengersByIds = async (ids) => {
@@ -98,6 +98,7 @@ const ReservationManagement = () => {
     let query = supabase
       .from('reservas')
       .select('id, excursao_id, onibus_id, status, criado_em')
+      .neq('status', 'cancelada')
       .order('criado_em', { ascending: false })
 
     if (selectedExcursionId) {
@@ -465,14 +466,16 @@ const ReservationManagement = () => {
                     <span className="hidden sm:inline">{booking.passengers[0]?.presente === true ? 'Ver detalhes' : 'Confirmar Presença'}</span>
                     <span className="sm:hidden">{booking.passengers[0]?.presente === true ? 'Detalhes' : 'Presença'}</span>
                   </Button>
-                  <Button
-                    onClick={() => requestDeleteBooking(booking.id)}
-                    size="sm"
-                    className="bg-white text-red-600 border border-red-600 hover:bg-red-50 text-sm sm:text-sm px-4 sm:px-6 py-2 sm:py-2"
-                  >
-                    <Trash2 className="h-4 w-4 sm:h-4 sm:w-4 sm:mr-2" />
-                    <span>Cancelar</span>
-                  </Button>
+                  {allowCancel && (
+                    <Button
+                      onClick={() => requestDeleteBooking(booking.id)}
+                      size="sm"
+                      className="bg-white text-red-600 border border-red-600 hover:bg-red-50 text-sm sm:text-sm px-4 sm:px-6 py-2 sm:py-2"
+                    >
+                      <Trash2 className="h-4 w-4 sm:h-4 sm:w-4 sm:mr-2" />
+                      <span>Cancelar</span>
+                    </Button>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -487,43 +490,8 @@ const ReservationManagement = () => {
           </DialogHeader>
           {selectedBooking && selectedBooking.passengers.length > 0 && (
             <div className="space-y-4 md:space-y-6">
-              {/* Foto e Informações do Passageiro Principal */}
+              {/* Informações do Passageiro Principal (sem foto) */}
               <div className="flex flex-col items-center text-center space-y-3 pb-4 border-b border-white/10">
-                <div className="relative w-full flex justify-center">
-                  {expandedPhoto === (selectedBooking.passengers[0].photo || 'https://images.unsplash.com/photo-1595872018818-97555653a011') ? (
-                    <div className="relative w-full max-w-md">
-                      <button
-                        onClick={() => setExpandedPhoto(null)}
-                        className="absolute -top-2 -right-2 z-10 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 transition-colors shadow-lg"
-                        aria-label="Fechar"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                      <img 
-                        src={selectedBooking.passengers[0].photo || 'https://images.unsplash.com/photo-1595872018818-97555653a011'} 
-                        alt={selectedBooking.passengers[0].name} 
-                        className="w-full h-auto max-h-[60vh] object-contain rounded-lg border-4 border-[#ECAE62] shadow-lg"
-                        onError={(e) => {
-                          e.target.src = 'https://images.unsplash.com/photo-1595872018818-97555653a011';
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div 
-                      className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-4 border-[#ECAE62] shadow-lg cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => setExpandedPhoto(selectedBooking.passengers[0].photo || 'https://images.unsplash.com/photo-1595872018818-97555653a011')}
-                    >
-                      <img 
-                        src={selectedBooking.passengers[0].photo || 'https://images.unsplash.com/photo-1595872018818-97555653a011'} 
-                        alt={selectedBooking.passengers[0].name} 
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.src = 'https://images.unsplash.com/photo-1595872018818-97555653a011';
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
                 <div>
                   <h3 className="text-xl sm:text-2xl font-bold text-white mb-1">
                     {selectedBooking.passengers[0].name}
@@ -582,7 +550,7 @@ const ReservationManagement = () => {
                 </div>
               </div>
 
-              {/* Outros Passageiros (se houver mais de um) */}
+              {/* Outros Passageiros (sem fotos) */}
               {selectedBooking.passengers.length > 1 && (
               <div>
                   <h4 className="font-semibold mb-3 md:mb-4 text-sm sm:text-base flex items-center gap-2">
@@ -593,39 +561,6 @@ const ReservationManagement = () => {
                     {selectedBooking.passengers.slice(1).map((passenger, index) => (
                       <div key={index + 1} className="bg-white/5 rounded-lg p-3 md:p-4 border border-white/10 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          {expandedPhoto === (passenger.photo || 'https://images.unsplash.com/photo-1595872018818-97555653a011') ? (
-                            <div className="relative w-full max-w-xs">
-                              <button
-                                onClick={() => setExpandedPhoto(null)}
-                                className="absolute -top-2 -right-2 z-10 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors shadow-lg"
-                                aria-label="Fechar"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                              <img 
-                                src={passenger.photo || 'https://images.unsplash.com/photo-1595872018818-97555653a011'} 
-                                alt={passenger.name} 
-                                className="w-full h-auto max-h-[40vh] object-contain rounded-lg border-2 border-[#ECAE62]"
-                                onError={(e) => {
-                                  e.target.src = 'https://images.unsplash.com/photo-1595872018818-97555653a011';
-                                }}
-                              />
-                            </div>
-                          ) : (
-                            <div 
-                              className="w-12 h-12 sm:w-14 sm:h-14 rounded-full overflow-hidden border-2 border-[#ECAE62] flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={() => setExpandedPhoto(passenger.photo || 'https://images.unsplash.com/photo-1595872018818-97555653a011')}
-                            >
-                              <img 
-                                src={passenger.photo || 'https://images.unsplash.com/photo-1595872018818-97555653a011'} 
-                                alt={passenger.name} 
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.src = 'https://images.unsplash.com/photo-1595872018818-97555653a011';
-                                }}
-                              />
-                            </div>
-                          )}
                           <div className="min-w-0 flex-1">
                             <p className="font-semibold text-sm sm:text-base text-white truncate">{passenger.name}</p>
                             {passenger.phone && <p className="text-xs sm:text-sm text-white/70">{passenger.phone}</p>}
@@ -638,31 +573,31 @@ const ReservationManagement = () => {
                                 {passenger.presente ? '✓ Presente' : '✗ Ausente'}
                               </p>
                             )}
-                        </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => handleOpenPresenceModal(passenger.id, passenger.presente)}
-                            variant="outline"
-                            size="sm"
-                            className="border-blue-500/20 text-blue-400 hover:bg-blue-500/10 flex-shrink-0"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                          </Button>
-                      <Button
-                            onClick={() => handleRemovePassenger(selectedBooking.id, index + 1)}
-                        variant="outline"
-                        size="sm"
-                            className="border-red-500/20 text-red-400 hover:bg-red-500/10 flex-shrink-0"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                        </div>
+                          </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => handleOpenPresenceModal(passenger.id, passenger.presente)}
+                              variant="outline"
+                              size="sm"
+                              className="border-blue-500/20 text-blue-400 hover:bg-blue-500/10 flex-shrink-0"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                        <Button
+                              onClick={() => handleRemovePassenger(selectedBooking.id, index + 1)}
+                          variant="outline"
+                          size="sm"
+                              className="border-red-500/20 text-red-400 hover:bg-red-500/10 flex-shrink-0"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                          </div>
+                      </div>
+                    ))}
                     </div>
-                  ))}
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Botão de Confirmar Presença do Passageiro Principal */}
               <div className="flex justify-center pt-4 border-t border-white/10">
@@ -712,7 +647,7 @@ const ReservationManagement = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <Dialog open={allowCancel && confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="bg-[#0F172A] text-white">
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg">Confirmar cancelamento</DialogTitle>

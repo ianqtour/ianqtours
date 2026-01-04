@@ -3,8 +3,9 @@ import { motion } from 'framer-motion';
 import { Calendar, MapPin, Clock, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase'
+import Navbar from '@/components/landing/Navbar'
 
-const ExcursionSelection = ({ onSelect }) => {
+const ExcursionSelection = ({ onSelect, onAdminBack }) => {
   const [excursions, setExcursions] = useState([]);
 
   useEffect(() => {
@@ -68,6 +69,7 @@ const ExcursionSelection = ({ onSelect }) => {
   return (
     <div className="min-h-screen p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
+        {onAdminBack && <Navbar adminBackAction={onAdminBack} disableDesktopButtons disableMobileMenu />}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}

@@ -8,7 +8,6 @@ import BookingConfirmation from '@/components/user/BookingConfirmation';
 import { Button } from '@/components/ui/button';
 import { Settings } from 'lucide-react';
 import { supabase } from '@/lib/supabase'
-import { buildTicketPdf } from '@/lib/ticketPdf'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
@@ -23,7 +22,6 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [passengers, setPassengers] = useState([]);
   const [bookingId, setBookingId] = useState(null);
-  const [bookingTicketUrl, setBookingTicketUrl] = useState('')
   const [pendingLinks, setPendingLinks] = useState(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [cpfOpen, setCpfOpen] = useState(false)
@@ -56,27 +54,7 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
     }
   }, [cpfOpen, confirmOpen])
 
-  const dataUrlToBlob = (dataUrl) => {
-    if (!dataUrl || typeof dataUrl !== 'string') return null
-    const parts = String(dataUrl).split(',')
-    const header = parts[0] || ''
-    const b64 = parts[1] || ''
-    const m = header.match(/data:(.*?);base64/)
-    const mime = m ? m[1] : 'image/jpeg'
-    if (!b64) return null
-    let bstr
-    try {
-      bstr = atob(b64)
-    } catch {
-      return null
-    }
-    let n = bstr.length
-    const u8arr = new Uint8Array(n)
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n)
-    }
-    return new Blob([u8arr], { type: mime })
-  }
+  const dataUrlToBlob = () => null
 
   const toIsoBirth = (s) => {
     if (!s) return null
@@ -131,17 +109,7 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
         return
       }
       pax = attempt.data
-      if (p.photo) {
-        const blob = dataUrlToBlob(p.photo)
-        if (blob) {
-          const path = `temp/${pax.id}-${Date.now()}.jpg`
-          await supabase.storage.from('passageiros').upload(path, blob, { upsert: true, contentType: blob.type })
-          const { data: pub } = await supabase.storage.from('passageiros').getPublicUrl(path)
-          if (pub?.publicUrl) {
-            await supabase.from('passageiros').update({ foto_url: pub.publicUrl }).eq('id', pax.id)
-          }
-        }
-      }
+      // Foto removida do fluxo
       inserted.push({ seatNumber: p.seatNumber, passageiro_id: pax.id })
     }
     setPendingLinks(inserted)
@@ -204,23 +172,7 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
         return
       }
     }
-    try {
-      const blob = buildTicketPdf({ bookingId: bookingIdCreated, excursion: selectedExcursion, bus: selectedBus, passengers, seats: selectedSeats })
-      const path = `reservas/${bookingIdCreated}.pdf`
-      const { data: upData, error: upError } = await supabase.storage.from('ingressos').upload(path, blob, { upsert: true, contentType: 'application/pdf' })
-      if (upError) {
-        const msg = upError.message || 'Falha no upload do ingresso'
-        toast({ title: 'Erro ao salvar ingresso', description: msg, variant: 'destructive' })
-      } else {
-        const { data: pub } = await supabase.storage.from('ingressos').getPublicUrl(path)
-        if (pub?.publicUrl) {
-          await supabase.from('reservas').update({ ingresso_url: pub.publicUrl }).eq('id', bookingIdCreated)
-          setBookingTicketUrl(pub.publicUrl)
-        }
-      }
-    } catch (e) {
-      toast({ title: 'Falha ao gerar ingresso', description: 'Tente baixar mais tarde em Meus Ingressos.', variant: 'destructive' })
-    }
+    // Geração e salvamento de ingresso removidos
     setBookingId(bookingIdCreated)
     setConfirmOpen(false)
     setConfirmedPassenger(null)
@@ -327,7 +279,7 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
             exit={{ opacity: 0, x: -100 }}
             transition={{ duration: 0.3 }}
           >
-            <ExcursionSelection onSelect={handleExcursionSelect} />
+            <ExcursionSelection onSelect={handleExcursionSelect} onAdminBack={onAdminClick} />
           </motion.div>
         )}
 
@@ -401,7 +353,6 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
               bus={selectedBus}
               seats={selectedSeats}
               passengers={passengers}
-              ticketUrl={bookingTicketUrl}
               onReset={handleReset}
             />
           </motion.div>

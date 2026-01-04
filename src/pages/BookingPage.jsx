@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import Footer from '@/components/landing/Footer'
+import { getUserRole } from '@/lib/authRole'
  
 
   const BookingPage = () => {
@@ -13,6 +14,7 @@ import Footer from '@/components/landing/Footer'
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(true);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState('normal');
   
 
   useEffect(() => {
@@ -21,13 +23,21 @@ import Footer from '@/components/landing/Footer'
       if (data.session) {
         setIsAdminLoggedIn(true)
         setIsAdmin(true)
+        const role = await getUserRole()
+        setUserRole(role)
       }
     }
     init()
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       const loggedIn = !!session
       setIsAdminLoggedIn(loggedIn)
-      if (loggedIn) setIsAdmin(true)
+      if (loggedIn) {
+        setIsAdmin(true)
+        ;(async () => {
+          const role = await getUserRole()
+          setUserRole(role)
+        })()
+      }
     })
     return () => {
       authListener.subscription.unsubscribe()
@@ -45,6 +55,11 @@ import Footer from '@/components/landing/Footer'
   const handleAdminLogin = (success) => {
     if (success) {
       setIsAdminLoggedIn(true)
+      setIsAdmin(true)
+      ;(async () => {
+        const role = await getUserRole()
+        setUserRole(role)
+      })()
     }
   }
 
@@ -52,6 +67,7 @@ import Footer from '@/components/landing/Footer'
     await supabase.auth.signOut()
     setIsAdminLoggedIn(false)
     setIsAdmin(false)
+    navigate('/')
   }
 
   return (
@@ -72,11 +88,18 @@ import Footer from '@/components/landing/Footer'
           {!isAdminLoggedIn ? (
             <AdminLogin onLogin={handleAdminLogin} onBack={() => setIsAdmin(false)} />
           ) : (
-            <AdminPanel onLogout={handleAdminLogout} onBack={() => navigate('/')} />
+            <AdminPanel
+              onLogout={handleAdminLogout}
+              onBack={() => navigate('/')}
+              onStartReservation={() => setIsAdmin(false)}
+              role={userRole}
+            />
           )}
         </>
       )}
-      <Footer />
+      <div className="hidden sm:block">
+        <Footer />
+      </div>
     </>
   );
 };

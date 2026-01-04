@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ArrowLeft, MapPin, Calendar, Bus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -8,13 +9,27 @@ const SeatSelection = ({ bus, excursion, onSelect, onBack }) => {
   const [selectedSeats, setSelectedSeats] = useState([]);
   const { toast } = useToast();
 
+  const [occupiedInfo, setOccupiedInfo] = useState(null);
+  const formatBirthDisplay = (dateStr) => {
+    if (!dateStr) return '-'
+    const s = String(dateStr)
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`
+    const first10 = s.slice(0, 10)
+    const mIso = first10.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (mIso) return `${mIso[3]}/${mIso[2]}/${mIso[1]}`
+    const mBr = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+    if (mBr) return s
+    return s
+  }
   const toggleSeat = (seatNumber) => {
     const seat = bus.seats.find(s => s.number === seatNumber);
     if (seat.status === 'occupied') {
-      toast({
-        title: "Assento Indisponível",
-        description: "Este assento já está ocupado.",
-        variant: "destructive",
+      setOccupiedInfo({
+        seatNumber,
+        name: (seat.occupant?.name || 'Passageiro não identificado'),
+        phone: (seat.occupant?.phone || ''),
+        birthDate: (seat.occupant?.birthDate || '')
       });
       return;
     }
@@ -22,6 +37,7 @@ const SeatSelection = ({ bus, excursion, onSelect, onBack }) => {
       setSelectedSeats([]);
     } else {
       setSelectedSeats([seatNumber]);
+      setOccupiedInfo(null);
     }
   };
 
@@ -158,13 +174,13 @@ const SeatSelection = ({ bus, excursion, onSelect, onBack }) => {
                         return (
                           <motion.button
                             key={seat.number}
-                            whileHover={{ scale: seat.status === 'occupied' ? 1 : 1.1 }}
+                            whileHover={{ scale: seat.status === 'occupied' ? 1.02 : 1.1 }}
                             whileTap={{ scale: seat.status === 'occupied' ? 1 : 0.95 }}
                             onClick={() => toggleSeat(seat.number)}
-                            disabled={seat.status === 'occupied'}
                             className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex items-center justify-center font-bold text-white transition-all duration-200 ${getSeatColor(seat)} ${
-                              seat.status === 'occupied' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:shadow-lg'
+                              seat.status === 'occupied' ? 'cursor-help opacity-80' : 'cursor-pointer hover:shadow-lg'
                             }`}
+                          title={seat.status === 'occupied' ? (seat.occupant?.name ? `Ocupado por ${seat.occupant.name}` : 'Ocupado') : 'Disponível'}
                           >
                             {seat.number}
                           </motion.button>
@@ -188,13 +204,13 @@ const SeatSelection = ({ bus, excursion, onSelect, onBack }) => {
                           return (
                             <motion.button
                               key={seat.number}
-                              whileHover={{ scale: seat.status === 'occupied' ? 1 : 1.1 }}
+                              whileHover={{ scale: seat.status === 'occupied' ? 1.02 : 1.1 }}
                               whileTap={{ scale: seat.status === 'occupied' ? 1 : 0.95 }}
                               onClick={() => toggleSeat(seat.number)}
-                              disabled={seat.status === 'occupied'}
                               className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex items-center justify-center font-bold text-white transition-all duration-200 ${getSeatColor(seat)} ${
-                                seat.status === 'occupied' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:shadow-lg'
+                                seat.status === 'occupied' ? 'cursor-help opacity-80' : 'cursor-pointer hover:shadow-lg'
                               }`}
+                              title={seat.status === 'occupied' ? (seat.occupant?.name ? `Ocupado por ${seat.occupant.name}` : 'Ocupado') : 'Disponível'}
                             >
                               {seat.number}
                             </motion.button>
@@ -219,10 +235,10 @@ const SeatSelection = ({ bus, excursion, onSelect, onBack }) => {
                               whileHover={{ scale: seat.status === 'occupied' ? 1 : 1.1 }}
                               whileTap={{ scale: seat.status === 'occupied' ? 1 : 0.95 }}
                               onClick={() => toggleSeat(seat.number)}
-                              disabled={seat.status === 'occupied'}
                               className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex items-center justify-center font-bold text-white transition-all duration-200 ${getSeatColor(seat)} ${
-                                seat.status === 'occupied' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:shadow-lg'
+                                seat.status === 'occupied' ? 'cursor-help opacity-80' : 'cursor-pointer hover:shadow-lg'
                               }`}
+                              title={seat.status === 'occupied' ? (seat.occupant?.name ? `Ocupado por ${seat.occupant.name}` : 'Ocupado') : 'Disponível'}
                             >
                               {seat.number}
                             </motion.button>
@@ -249,10 +265,10 @@ const SeatSelection = ({ bus, excursion, onSelect, onBack }) => {
                           whileHover={{ scale: seat.status === 'occupied' ? 1 : 1.1 }}
                           whileTap={{ scale: seat.status === 'occupied' ? 1 : 0.95 }}
                           onClick={() => toggleSeat(seat.number)}
-                          disabled={seat.status === 'occupied'}
                           className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex items-center justify-center font-bold text-white transition-all duration-200 ${getSeatColor(seat)} ${
-                            seat.status === 'occupied' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:shadow-lg'
+                            seat.status === 'occupied' ? 'cursor-help opacity-80' : 'cursor-pointer hover:shadow-lg'
                           }`}
+                          title={seat.status === 'occupied' ? (seat.occupant?.name ? `Ocupado por ${seat.occupant.name}` : 'Ocupado') : 'Disponível'}
                         >
                           {seat.number}
                         </motion.button>
@@ -295,7 +311,27 @@ const SeatSelection = ({ bus, excursion, onSelect, onBack }) => {
           </div>
         </div>
 
-        
+        <Dialog open={!!occupiedInfo} onOpenChange={(v) => { if (!v) setOccupiedInfo(null) }}>
+          <DialogContent className="bg-[#0F172A] text-white">
+            <DialogHeader>
+              <DialogTitle className="text-base sm:text-lg">Assento Ocupado</DialogTitle>
+              <DialogDescription className="text-white/80 text-sm">
+                Informações do passageiro
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <div>Assento: <span className="font-semibold">{occupiedInfo?.seatNumber}</span></div>
+              <div>Nome: <span className="font-semibold">{occupiedInfo?.name || '-'}</span></div>
+              <div>Telefone: <span className="font-semibold">{occupiedInfo?.phone || '-'}</span></div>
+              <div>Nascimento: <span className="font-semibold">{formatBirthDisplay(occupiedInfo?.birthDate)}</span></div>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setOccupiedInfo(null)} className="bg-white text-[#0F172A] hover:bg-gray-100">
+                Fechar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Button
           onClick={handleContinue}

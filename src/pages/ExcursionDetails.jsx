@@ -5,6 +5,7 @@ import Navbar from '@/components/landing/Navbar'
 import Footer from '@/components/landing/Footer'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
+import { buildWhatsAppUrl } from '@/lib/whatsapp'
 import { MapPin, CalendarDays, Clock, Users, ArrowRight, Tag, CreditCard, CheckCircle } from 'lucide-react'
 
   const ExcursionDetails = () => {
@@ -89,7 +90,18 @@ import { MapPin, CalendarDays, Clock, Users, ArrowRight, Tag, CreditCard, CheckC
   const handleReserve = () => {
     if (!excursion) return
     const mapped = toUserFlowExcursion(excursion)
-    navigate('/admin', { state: { selectedExcursion: mapped } })
+    const dateStr = formatDate(mapped.date)
+    const priceStr = formatPrice(mapped.price)
+    const text =
+      `Olá!\n\n` +
+      `Quero reservar minha vaga:\n` +
+      `• *Excursão:* ${mapped.name}\n` +
+      `• *Destino:* ${mapped.destination}\n` +
+      `• *Data:* ${dateStr}\n` +
+      `• *Preço:* ${priceStr}\n\n` +
+      `Pode me confirmar a disponibilidade e os próximos passos?`
+    const waUrl = buildWhatsAppUrl(text)
+    window.open(waUrl, '_blank', 'noopener,noreferrer')
   }
 
   return (

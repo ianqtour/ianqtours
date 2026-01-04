@@ -36,6 +36,7 @@ const BusSelection = ({ excursion, onSelect, onBack }) => {
 
       const ids = busList.map(b => b.id)
       let seatsByBus = {}
+      let occupantByBusSeat = {}
       if (ids.length > 0) {
         const { data: seatsData } = await supabase
           .from('assentos_onibus')
@@ -47,9 +48,54 @@ const BusSelection = ({ excursion, onSelect, onBack }) => {
           acc[s.onibus_id] = arr
           return acc
         }, {})
+
+        const { data: resData } = await supabase
+          .from('reservas')
+          .select('id,onibus_id')
+          .in('onibus_id', ids)
+        const reservaToBus = new Map((resData || []).map(r => [r.id, r.onibus_id]))
+        const resIds = (resData || []).map(r => r.id)
+        let paxRes = []
+        if (resIds.length > 0) {
+          const { data: paxResData } = await supabase
+            .from('passageiros_reserva')
+            .select('reserva_id,numero_assento,passageiro_id')
+            .in('reserva_id', resIds)
+          paxRes = paxResData || []
+        }
+        const paxIds = Array.from(new Set((paxRes || []).map(p => p.passageiro_id).filter(Boolean)))
+        let passengers = []
+        if (paxIds.length > 0) {
+          const { data: passengersData } = await supabase
+            .from('passageiros')
+            .select('id,nome,telefone,data_nascimento')
+            .in('id', paxIds)
+          passengers = passengersData || []
+        }
+        const infoById = new Map(passengers.map(p => [String(p.id), {
+          name: String(p.nome || '').toUpperCase(),
+          phone: p.telefone || '',
+          birthDate: p.data_nascimento || ''
+        }]))
+        occupantByBusSeat = (paxRes || []).reduce((acc, pr) => {
+          const busId = reservaToBus.get(pr.reserva_id)
+          if (!busId) return acc
+          const seatNum = Number(pr.numero_assento)
+          const info = infoById.get(String(pr.passageiro_id)) || { name: '', phone: '', birthDate: '' }
+          const map = acc[busId] || {}
+          map[seatNum] = info
+          acc[busId] = map
+          return acc
+        }, {})
       }
 
-      const enriched = busList.map(b => ({ ...b, seats: seatsByBus[b.id] || [] }))
+      const enriched = busList.map(b => ({
+        ...b,
+        seats: (seatsByBus[b.id] || []).map(s => ({
+          ...s,
+          occupant: s.status === 'occupied' ? (occupantByBusSeat[b.id]?.[Number(s.number)] || null) : null
+        }))
+      }))
       setBuses(enriched)
     }
     load()

@@ -155,14 +155,6 @@ const MeusIngressos = () => {
                     <p className="text-white/70 mb-2 flex items-center"><CalendarDays className="h-4 w-4 mr-2 text-[#ECAE62]"/> {item.excursion.date ? formatDate(item.excursion.date) : '-'}</p>
                     <p className="text-white/70 mb-4 flex items-center"><Ticket className="h-4 w-4 mr-2 text-[#ECAE62]"/> Assento {item.seat}</p>
                     <div className="flex flex-col md:flex-row gap-3">
-                      <Button
-                        variant="ghost"
-                        onClick={() => { if (item.ticketUrl) window.open(item.ticketUrl, '_blank') }}
-                        disabled={!item.ticketUrl}
-                        className="w-full md:flex-1 bg-transparent border border-white/30 text-white hover:bg-white/10"
-                      >
-                        Baixar ingresso
-                      </Button>
                       {item.excursion.id && (
                         <Button onClick={() => navigate(`/excursoes/${item.excursion.id}`)} className="w-full md:flex-1 bg-gradient-to-r from-[#ECAE62] to-[#FFD27A] text-[#0B1420] font-semibold py-3 ring-2 ring-[#ECAE62]/40 hover:brightness-105">Ver excursão</Button>
                       )}

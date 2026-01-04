@@ -2,12 +2,16 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, LogOut } from 'lucide-react';
+import { ArrowLeft, LogOut, PlusCircle } from 'lucide-react';
 import ExcursionManagement from '@/components/admin/ExcursionManagement';
 import BusManagement from '@/components/admin/BusManagement';
 import ReservationManagement from '@/components/admin/ReservationManagement';
 
-const AdminPanel = ({ onLogout, onBack }) => {
+const AdminPanel = ({ onLogout, onBack, onStartReservation, role = 'admin' }) => {
+  const [tab, setTab] = React.useState(role === 'admin' ? 'excursions' : 'reservations')
+  React.useEffect(() => {
+    setTab(role === 'admin' ? 'excursions' : 'reservations')
+  }, [role])
   const handleLogout = () => {
     onLogout();
   };
@@ -30,6 +34,16 @@ const AdminPanel = ({ onLogout, onBack }) => {
               <ArrowLeft className="mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Voltar</span>
             </Button>
+            {role === 'admin' && (
+              <Button
+                onClick={onStartReservation}
+                size="sm"
+                className="bg-[#ECAE62] hover:bg-[#8C641C] text-[#0B1420]"
+              >
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Nova Reserva
+              </Button>
+            )}
             <Button
               onClick={handleLogout}
               size="sm"
@@ -40,29 +54,41 @@ const AdminPanel = ({ onLogout, onBack }) => {
             </Button>
           </div>
 
-          <Tabs defaultValue="excursions" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-white/5 mb-4 md:mb-8">
-              <TabsTrigger value="excursions" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
-                Excursões
-              </TabsTrigger>
-              <TabsTrigger value="buses" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
-                Ônibus
-              </TabsTrigger>
-              <TabsTrigger value="reservations" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
-                Reservas
-              </TabsTrigger>
-            </TabsList>
+          <Tabs value={tab} onValueChange={setTab} className="w-full">
+            {role === 'admin' ? (
+              <TabsList className="grid w-full grid-cols-3 bg-white/5 mb-4 md:mb-8">
+                <TabsTrigger value="excursions" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
+                  Excursões
+                </TabsTrigger>
+                <TabsTrigger value="buses" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
+                  Ônibus
+                </TabsTrigger>
+                <TabsTrigger value="reservations" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
+                  Reservas
+                </TabsTrigger>
+              </TabsList>
+            ) : (
+              <TabsList className="grid w-full grid-cols-1 bg-white/5 mb-4 md:mb-8">
+                <TabsTrigger value="reservations" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
+                  Reservas
+                </TabsTrigger>
+              </TabsList>
+            )}
 
-            <TabsContent value="excursions">
-              <ExcursionManagement />
-            </TabsContent>
+            {role === 'admin' && (
+              <TabsContent value="excursions">
+                <ExcursionManagement />
+              </TabsContent>
+            )}
 
-            <TabsContent value="buses">
-              <BusManagement />
-            </TabsContent>
+            {role === 'admin' && (
+              <TabsContent value="buses">
+                <BusManagement />
+              </TabsContent>
+            )}
 
             <TabsContent value="reservations">
-              <ReservationManagement />
+              <ReservationManagement allowCancel={role === 'admin'} />
             </TabsContent>
           </Tabs>
         </div>
