@@ -172,6 +172,47 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
         return
       }
     }
+    const dateStr = formatDateOnly(selectedExcursion?.date)
+    const busLabel = selectedBus?.identification || selectedBus?.type || selectedBus?.name
+    const webhookUrl = 'https://n8n-n8n.j6kpgx.easypanel.host/webhook/confirmacao-reserva'
+    const payloads = []
+    if ((passengers || []).length > 0) {
+      for (const p of passengers) {
+        payloads.push({
+          nome: p.name,
+          destino: selectedExcursion?.destination,
+          excursao: selectedExcursion?.name,
+          data: dateStr,
+          onibus: busLabel,
+          assento: Number(p.seatNumber),
+          telefone: p.phone,
+        })
+      }
+    } else if (confirmedPassenger) {
+      const seat = Number((pendingLinks || [])[0]?.seatNumber)
+      payloads.push({
+        nome: confirmedPassenger?.nome,
+        destino: selectedExcursion?.destination,
+        excursao: selectedExcursion?.name,
+        data: dateStr,
+        onibus: busLabel,
+        assento: seat,
+        telefone: confirmedPassenger?.telefone || '',
+      })
+    }
+    if (payloads.length > 0) {
+      try {
+        await Promise.all(payloads.map(body =>
+          fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+        ))
+      } catch (err) {
+        toast({ title: 'Aviso: falha ao notificar webhook', description: 'Reserva concluída, mas notificação externa falhou.', variant: 'default' })
+      }
+    }
     // Geração e salvamento de ingresso removidos
     setBookingId(bookingIdCreated)
     setConfirmOpen(false)
@@ -222,7 +263,7 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
     const digits = cpfValue.replace(/\D/g, '')
     const { data: found } = await supabase
       .from('passageiros')
-      .select('id,nome')
+      .select('id,nome,telefone')
       .eq('cpf', digits)
       .maybeSingle()
     setCpfChecking(false)

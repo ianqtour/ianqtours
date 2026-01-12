@@ -176,6 +176,7 @@ const FinanceManagement = () => {
       return {
         id: r.id,
         excursionId: r.excursao_id,
+        busId: r.onibus_id,
         passengers: list,
         seats: list.map(p => p.seatNumber),
         date: r.criado_em,
@@ -277,6 +278,40 @@ const FinanceManagement = () => {
             passengers: b.passengers.map(p => p.passageiroId === String(pid) ? { ...p, progressPercent: pct, hasOverdue } : p)
           }
         }))
+      }
+      if (openViewPlan && currentPlan) {
+        const booking = openViewPlan.booking
+        const passenger = openViewPlan.passenger
+        const busLabel = await getBusLabelById(booking.busId)
+        const pendentes = updated
+          .filter(i => String(i.status) !== 'pago')
+          .map(i => ({
+            numero: i.numero,
+            valor: Number(i.valor || 0),
+            vencimento: i.vencimento,
+            status: String(i.status),
+          }))
+        const body = {
+          nome: passenger.name,
+          telefone: passenger.phone,
+          excursao: getExcursionName(booking.excursionId),
+          data: booking.date,
+          onibus: busLabel,
+          assento: Number(passenger.seatNumber),
+          parcela_numero: inst.numero,
+          parcela_valor: Number(inst.valor || 0),
+          parcela_vencimento: inst.vencimento,
+          parcelas_pendentes: pendentes,
+        }
+        try {
+          await fetch(PAYMENT_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+        } catch (e) {
+          toast({ title: 'Aviso: falha ao notificar webhook', description: 'Pagamento marcado, mas notificação externa falhou.', variant: 'default' })
+        }
       }
       toast({ title: 'Parcela paga', description: `Parcela #${inst.numero} marcada como paga.` })
     } catch (err) {
@@ -450,6 +485,23 @@ const FinanceManagement = () => {
     const e = excursions.find(x => x.id === excursionId)
     return e ? Number(e.price || 0) : 0
   }
+
+  const getBusLabelById = async (busId) => {
+    if (!busId) return ''
+    try {
+      const { data } = await supabase
+        .from('onibus')
+        .select('nome, identificacao, tipo')
+        .eq('id', busId)
+        .maybeSingle()
+      if (!data) return String(busId)
+      return data.identificacao || data.tipo || data.nome || String(busId)
+    } catch {
+      return String(busId)
+    }
+  }
+
+  const PAYMENT_WEBHOOK_URL = 'https://n8n-n8n.j6kpgx.easypanel.host/webhook/pagamento'
 
   return (
     <div className="space-y-3 md:space-y-6">
