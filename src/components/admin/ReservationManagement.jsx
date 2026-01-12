@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar, MapPin, Bus, Users, Trash2, Eye, Armchair, X, CheckCircle } from 'lucide-react';
+import { Calendar, MapPin, Bus, Users, Trash2, Eye, Armchair, X, CheckCircle, Pencil } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Dialog,
@@ -31,6 +31,13 @@ const ReservationManagement = ({ allowCancel = true }) => {
   const [presencePassengerId, setPresencePassengerId] = useState(null);
   const [presenceStatus, setPresenceStatus] = useState(null);
   const { toast } = useToast();
+  const [editOpen, setEditOpen] = useState(false);
+  const [editPassenger, setEditPassenger] = useState(null);
+  const [editBooking, setEditBooking] = useState(null);
+  const [editBusId, setEditBusId] = useState(null);
+  const [editSeatNumber, setEditSeatNumber] = useState('');
+  const [seatOptions, setSeatOptions] = useState([]);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const normalizeText = (s) => (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const formatDate = (dateStr) => {
@@ -206,6 +213,108 @@ const ReservationManagement = ({ allowCancel = true }) => {
   const getBusIdentification = (busId) => {
     const bus = buses.find(b => b.id === busId)
     return bus ? (bus.identification || bus.name || 'Desconhecido') : 'Desconhecido'
+  };
+
+  const loadSeatOptions = async (busId, keepSeatNumber = null) => {
+    if (!busId) {
+      setSeatOptions([]);
+      return;
+    }
+    const { data: seatsData } = await supabase
+      .from('assentos_onibus')
+      .select('numero_assento, status')
+      .eq('onibus_id', busId);
+    const { data: resOnBus } = await supabase
+      .from('reservas')
+      .select('id')
+      .eq('onibus_id', busId);
+    const resIds = (resOnBus || []).map(r => r.id);
+    let occupied = [];
+    if (resIds.length > 0) {
+      const { data: paxOnBus } = await supabase
+        .from('passageiros_reserva')
+        .select('numero_assento')
+        .in('reserva_id', resIds);
+      occupied = (paxOnBus || []).map(p => Number(p.numero_assento));
+    }
+    const seats = (seatsData || [])
+      .map(s => Number(s.numero_assento))
+      .filter(n => {
+        if (keepSeatNumber && Number(keepSeatNumber) === Number(n)) return true;
+        return !occupied.includes(Number(n));
+      })
+      .sort((a, b) => a - b);
+    setSeatOptions(seats);
+  };
+
+  const openEditModal = (booking, passenger) => {
+    setEditBooking(booking);
+    setEditPassenger(passenger);
+    const initialBus = booking.busId ? String(booking.busId) : '';
+    setEditBusId(initialBus);
+    setEditSeatNumber(String(passenger.seatNumber || ''));
+    setEditOpen(true);
+    loadSeatOptions(booking.busId, passenger.seatNumber);
+  };
+
+  const handleChangeEditBus = async (busId) => {
+    setEditBusId(busId);
+    setEditSeatNumber('');
+    await loadSeatOptions(busId);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editOpen || !editPassenger || !editBooking) return;
+    if (!editBusId || !editSeatNumber) {
+      toast({ title: 'Campos obrigatórios', description: 'Selecione ônibus e poltrona.' });
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const busChanged = String(editBusId) !== String(editBooking.busId);
+      if (!busChanged) {
+        await supabase
+          .from('passageiros_reserva')
+          .update({ numero_assento: Number(editSeatNumber) })
+          .eq('id', editPassenger.id);
+      } else {
+        const { data: originalRes } = await supabase
+          .from('reservas')
+          .select('status, excursao_id')
+          .eq('id', editBooking.id)
+          .single();
+        const { data: newRes, error: insertErr } = await supabase
+          .from('reservas')
+          .insert({
+            excursao_id: originalRes?.excursao_id || editBooking.excursionId,
+            onibus_id: Number(editBusId),
+            status: originalRes?.status || 'confirmada',
+          })
+          .select('id')
+          .single();
+        if (insertErr || !newRes?.id) {
+          throw new Error('Falha ao criar nova reserva para mover passageiro.');
+        }
+        await supabase
+          .from('passageiros_reserva')
+          .update({
+            reserva_id: newRes.id,
+            numero_assento: Number(editSeatNumber),
+          })
+          .eq('id', editPassenger.id);
+      }
+      await loadBookings();
+      setEditOpen(false);
+      setEditPassenger(null);
+      setEditBooking(null);
+      setEditBusId(null);
+      setEditSeatNumber('');
+      toast({ title: 'Atualizado', description: 'Ônibus e poltrona atualizados com sucesso.' });
+    } catch (e) {
+      toast({ title: 'Erro ao atualizar', description: 'Tente novamente.' });
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   const handleDeleteBooking = async (bookingId) => {
@@ -466,6 +575,14 @@ const ReservationManagement = ({ allowCancel = true }) => {
                     <span className="hidden sm:inline">{booking.passengers[0]?.presente === true ? 'Ver detalhes' : 'Confirmar Presença'}</span>
                     <span className="sm:hidden">{booking.passengers[0]?.presente === true ? 'Detalhes' : 'Presença'}</span>
                   </Button>
+                  <Button
+                    onClick={() => openEditModal(booking, booking.passengers[0])}
+                    size="sm"
+                    className="bg-blue-500 hover:bg-blue-600 text-white text-sm sm:text-sm px-4 sm:px-6 py-2 sm:py-2"
+                  >
+                    <Pencil className="h-4 w-4 sm:h-4 sm:w-4 sm:mr-2" />
+                    <span>Editar</span>
+                  </Button>
                   {allowCancel && (
                     <Button
                       onClick={() => requestDeleteBooking(booking.id)}
@@ -658,6 +775,60 @@ const ReservationManagement = ({ allowCancel = true }) => {
           <DialogFooter className="flex-row gap-2 sm:gap-2">
             <Button onClick={() => setConfirmOpen(false)} className="flex-1 bg-white text-[#0F172A] hover:bg-gray-100 text-sm sm:text-base">Não cancelar</Button>
             <Button onClick={handleConfirmDeleteBooking} className="flex-1 bg-red-600 text-white hover:bg-red-700 text-sm sm:text-base">Confirmar cancelamento</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="bg-[#0F172A] border-white/20 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg text-center">Editar Passageiro</DialogTitle>
+            <DialogDescription className="text-white/80 text-sm text-center">
+              Altere o ônibus e a poltrona para este passageiro.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <p className="text-white/70 text-xs">Passageiro</p>
+              <p className="text-white font-semibold">{editPassenger?.name}</p>
+            </div>
+            <div>
+              <p className="text-white/70 text-xs mb-1">Ônibus</p>
+              <Select value={editBusId || ''} onValueChange={handleChangeEditBus}>
+                <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                  <SelectValue placeholder="Selecione o ônibus" />
+                </SelectTrigger>
+                <SelectContent>
+                  {buses
+                    .filter(b => String(b.excursionId) === String(editBooking?.excursionId))
+                    .map(b => (
+                      <SelectItem key={b.id} value={String(b.id)}>
+                        {b.identification || b.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <p className="text-white/70 text-xs mb-1">Poltrona</p>
+              <Select value={editSeatNumber || ''} onValueChange={setEditSeatNumber}>
+                <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                  <SelectValue placeholder="Selecione a poltrona" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64 overflow-y-auto p-0">
+                  {seatOptions.map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {`Poltrona ${String(n).padStart(2, '0')}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2 pt-2">
+            <Button onClick={() => setEditOpen(false)} className="flex-1 bg-white text-[#0F172A] hover:bg-gray-100">Cancelar</Button>
+            <Button onClick={handleSaveEdit} disabled={savingEdit} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+              Salvar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

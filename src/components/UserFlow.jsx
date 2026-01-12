@@ -294,13 +294,7 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
             <BusSelection
               excursion={selectedExcursion}
               onSelect={handleBusSelect}
-              onBack={() => {
-                if (selectedExcursion && selectedExcursion.id) {
-                  navigate(`/excursoes/${selectedExcursion.id}`)
-                } else {
-                  setStep(1)
-                }
-              }}
+              onBack={() => navigate('/excursoes')}
             />
           </motion.div>
         )}

@@ -22,7 +22,7 @@ import { getUserRole } from '@/lib/authRole'
       const { data } = await supabase.auth.getSession()
       if (data.session) {
         setIsAdminLoggedIn(true)
-        setIsAdmin(true)
+        setIsAdmin(!(location.state && location.state.selectedExcursion))
         const role = await getUserRole()
         setUserRole(role)
       }
@@ -32,7 +32,7 @@ import { getUserRole } from '@/lib/authRole'
       const loggedIn = !!session
       setIsAdminLoggedIn(loggedIn)
       if (loggedIn) {
-        setIsAdmin(true)
+        setIsAdmin(!(location.state && location.state.selectedExcursion))
         ;(async () => {
           const role = await getUserRole()
           setUserRole(role)

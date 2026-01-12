@@ -672,8 +672,15 @@ const FinanceManagement = () => {
               <div>
                 <label className="block text-sm text-white/80 mb-1">Valor da entrada (R$)</label>
                 <Input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
                   value={entrada}
-                  onChange={(e) => setEntrada(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^\d.,-]/g, '')
+                    setEntrada(v)
+                  }}
                   placeholder="Ex.: 25,00"
                   className="bg-white/10 border-white/20 text-white"
                 />
@@ -681,8 +688,15 @@ const FinanceManagement = () => {
               <div>
                 <label className="block text-sm text-white/80 mb-1">Valor da parcela (R$)</label>
                 <Input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
                   value={valorParcela}
-                  onChange={(e) => setValorParcela(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^\d.,-]/g, '')
+                    setValorParcela(v)
+                  }}
                   placeholder="Ex.: 100,00"
                   className="bg-white/10 border-white/20 text-white"
                 />
@@ -690,8 +704,15 @@ const FinanceManagement = () => {
               <div>
                 <label className="block text-sm text-white/80 mb-1">Quantidade de parcelas</label>
                 <Input
+                  type="number"
+                  inputMode="numeric"
+                  step="1"
+                  min="1"
                   value={qtdParcelas}
-                  onChange={(e) => setQtdParcelas(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^\d]/g, '')
+                    setQtdParcelas(v)
+                  }}
                   placeholder="Ex.: 3"
                   className="bg-white/10 border-white/20 text-white"
                 />
