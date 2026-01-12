@@ -91,10 +91,14 @@ const BusSelection = ({ excursion, onSelect, onBack }) => {
 
       const enriched = busList.map(b => ({
         ...b,
-        seats: (seatsByBus[b.id] || []).map(s => ({
-          ...s,
-          occupant: s.status === 'occupied' ? (occupantByBusSeat[b.id]?.[Number(s.number)] || null) : null
-        }))
+        seats: (seatsByBus[b.id] || []).map(s => {
+          const occ = occupantByBusSeat[b.id]?.[Number(s.number)] || null
+          return {
+            ...s,
+            status: occ ? 'occupied' : s.status,
+            occupant: occ
+          }
+        })
       }))
       setBuses(enriched)
     }

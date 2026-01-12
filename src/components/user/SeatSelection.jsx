@@ -170,7 +170,7 @@ const SeatSelection = ({ bus, excursion, onSelect, onBack }) => {
                     ) : (
                       (() => {
                         const seat = seatByNumber(num)
-                        if (!seat) return <div key={`empty-${num}`} className="w-12 h-12 sm:w-16 sm:h-16" />
+                        if (!seat) return <div key={`empty-${idx}-${i}-${num ?? 'none'}`} className="w-12 h-12 sm:w-16 sm:h-16" />
                         return (
                           <motion.button
                             key={seat.number}
@@ -195,17 +195,17 @@ const SeatSelection = ({ bus, excursion, onSelect, onBack }) => {
                 {bus46Rows.map((nums, idx) => (
                   <div key={`b46-${idx}`} className="flex justify-center gap-3 sm:gap-4">
                     {nums.map((num, i) => (
-                      num === 'gap' ? (
-                        <div key={`gap46-${idx}-${i}`} className="w-10 sm:w-16" />
-                      ) : (
-                        (() => {
-                          const seat = seatByNumber(num)
-                          if (!seat) return <div key={`empty46-${num}`} className="w-12 h-12 sm:w-16 sm:h-16" />
-                          return (
-                            <motion.button
-                              key={seat.number}
-                              whileHover={{ scale: seat.status === 'occupied' ? 1.02 : 1.1 }}
-                              whileTap={{ scale: seat.status === 'occupied' ? 1 : 0.95 }}
+                    num === 'gap' ? (
+                      <div key={`gap46-${idx}-${i}`} className="w-10 sm:w-16" />
+                    ) : (
+                      (() => {
+                        const seat = seatByNumber(num)
+                        if (!seat) return <div key={`empty46-${idx}-${i}-${num ?? 'none'}`} className="w-12 h-12 sm:w-16 sm:h-16" />
+                        return (
+                          <motion.button
+                            key={seat.number}
+                            whileHover={{ scale: seat.status === 'occupied' ? 1.02 : 1.1 }}
+                            whileTap={{ scale: seat.status === 'occupied' ? 1 : 0.95 }}
                               onClick={() => toggleSeat(seat.number)}
                               className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex items-center justify-center font-bold text-white transition-all duration-200 ${getSeatColor(seat)} ${
                                 seat.status === 'occupied' ? 'cursor-help opacity-80' : 'cursor-pointer hover:shadow-lg'

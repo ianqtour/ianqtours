@@ -238,12 +238,12 @@ const ReservationManagement = ({ allowCancel = true }) => {
       occupied = (paxOnBus || []).map(p => Number(p.numero_assento));
     }
     const seats = (seatsData || [])
-      .map(s => Number(s.numero_assento))
-      .filter(n => {
-        if (keepSeatNumber && Number(keepSeatNumber) === Number(n)) return true;
-        return !occupied.includes(Number(n));
+      .map(s => {
+        const n = Number(s.numero_assento);
+        const isOccupied = s.status === 'ocupado' || occupied.includes(n);
+        return { number: n, occupied: isOccupied };
       })
-      .sort((a, b) => a - b);
+      .sort((a, b) => a.number - b.number);
     setSeatOptions(seats);
   };
 
@@ -271,23 +271,48 @@ const ReservationManagement = ({ allowCancel = true }) => {
     }
     setSavingEdit(true);
     try {
-      const busChanged = String(editBusId) !== String(editBooking.busId);
+      const currentBusId = String(editBooking.busId || '').trim();
+      const newBusId = String(editBusId || '').trim();
+      const busChanged = newBusId !== currentBusId;
+      const oldSeat = parseInt(editPassenger.seatNumber, 10);
+      const newSeat = parseInt(editSeatNumber, 10);
+      if (!newBusId || Number.isNaN(oldSeat) || Number.isNaN(newSeat)) {
+        toast({ title: 'Dados inválidos', description: 'Ônibus ou poltrona inválidos.' });
+        setSavingEdit(false);
+        return;
+      }
       if (!busChanged) {
         await supabase
           .from('passageiros_reserva')
-          .update({ numero_assento: Number(editSeatNumber) })
+          .update({ numero_assento: newSeat })
           .eq('id', editPassenger.id);
+        await supabase
+          .from('assentos_onibus')
+          .update({ status: 'disponivel' })
+          .eq('onibus_id', currentBusId)
+          .eq('numero_assento', oldSeat);
+        await supabase
+          .from('assentos_onibus')
+          .update({ status: 'ocupado' })
+          .eq('onibus_id', newBusId)
+          .eq('numero_assento', newSeat);
       } else {
         const { data: originalRes } = await supabase
           .from('reservas')
-          .select('status, excursao_id')
+          .select('status, excursao_id, onibus_id')
           .eq('id', editBooking.id)
           .single();
+        const sourceBusId = String(originalRes?.onibus_id || currentBusId || '').trim();
+        if (!sourceBusId) {
+          toast({ title: 'Dados inválidos', description: 'Ônibus de origem inválido.' });
+          setSavingEdit(false);
+          return;
+        }
         const { data: newRes, error: insertErr } = await supabase
           .from('reservas')
           .insert({
             excursao_id: originalRes?.excursao_id || editBooking.excursionId,
-            onibus_id: Number(editBusId),
+            onibus_id: newBusId,
             status: originalRes?.status || 'confirmada',
           })
           .select('id')
@@ -299,9 +324,19 @@ const ReservationManagement = ({ allowCancel = true }) => {
           .from('passageiros_reserva')
           .update({
             reserva_id: newRes.id,
-            numero_assento: Number(editSeatNumber),
+            numero_assento: newSeat,
           })
           .eq('id', editPassenger.id);
+        await supabase
+          .from('assentos_onibus')
+          .update({ status: 'disponivel' })
+          .eq('onibus_id', sourceBusId)
+          .eq('numero_assento', oldSeat);
+        await supabase
+          .from('assentos_onibus')
+          .update({ status: 'ocupado' })
+          .eq('onibus_id', newBusId)
+          .eq('numero_assento', newSeat);
       }
       await loadBookings();
       setEditOpen(false);
@@ -309,7 +344,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
       setEditBooking(null);
       setEditBusId(null);
       setEditSeatNumber('');
-      toast({ title: 'Atualizado', description: 'Ônibus e poltrona atualizados com sucesso.' });
+      toast({ title: 'Atualizado', description: 'Poltrona e status dos assentos atualizados.' });
     } catch (e) {
       toast({ title: 'Erro ao atualizar', description: 'Tente novamente.' });
     } finally {
@@ -815,9 +850,13 @@ const ReservationManagement = ({ allowCancel = true }) => {
                   <SelectValue placeholder="Selecione a poltrona" />
                 </SelectTrigger>
                 <SelectContent className="max-h-64 overflow-y-auto p-0">
-                  {seatOptions.map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {`Poltrona ${String(n).padStart(2, '0')}`}
+                  {seatOptions.map((s) => (
+                    <SelectItem
+                      key={s.number}
+                      value={String(s.number)}
+                      disabled={s.occupied && String(s.number) !== String(editPassenger?.seatNumber)}
+                    >
+                      {`Poltrona ${String(s.number).padStart(2, '0')}${s.occupied ? ' (Ocupada)' : ''}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
