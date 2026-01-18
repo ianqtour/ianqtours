@@ -158,7 +158,7 @@ const BusSelection = ({ excursion, onSelect, onBack }) => {
                     <Bus className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h4 className="text-xl font-bold text-white">{bus.name}</h4>
+                    <h4 className="text-xl font-bold text-white">{bus.identification}</h4>
                     <p className="text-white/70 text-sm">{bus.type}</p>
                   </div>
                 </div>
