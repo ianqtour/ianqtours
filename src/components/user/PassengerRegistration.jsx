@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,16 +8,34 @@ import { ArrowLeft, User, Shuffle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 const PassengerRegistration = ({ seats, onSubmit, onBack, initialCpf, initialIsRandomCpf }) => {
-  const [passengers, setPassengers] = useState(
-    seats.map(seat => ({
+  const [passengers, setPassengers] = useState(() => {
+    const saved = localStorage.getItem('passenger_registration_data');
+    const initial = seats.map(seat => ({
       seatNumber: seat,
       name: '',
       cpf: initialCpf || '',
       cpf_aleatorio: initialCpf ? (initialIsRandomCpf || false) : false,
       birthDate: '',
       phone: ''
-    }))
-  );
+    }));
+
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return initial.map(p => {
+          const savedP = parsed.find(sp => sp.seatNumber === p.seatNumber);
+          return savedP ? { ...p, ...savedP } : p;
+        });
+      } catch (e) {
+        return initial;
+      }
+    }
+    return initial;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('passenger_registration_data', JSON.stringify(passengers));
+  }, [passengers]);
   const { toast } = useToast();
 
   const formatCpf = (v) => {
@@ -112,6 +130,11 @@ const PassengerRegistration = ({ seats, onSubmit, onBack, initialCpf, initialIsR
     setPassengers(updated);
   };
 
+  const handleRandomCpf = (index) => {
+    const newCpf = generateRandomCpf();
+    handleInputChange(index, 'cpf', newCpf);
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     
@@ -125,6 +148,7 @@ const PassengerRegistration = ({ seats, onSubmit, onBack, initialCpf, initialIsR
       return;
     }
 
+    localStorage.removeItem('passenger_registration_data');
     onSubmit(passengers);
   };
 

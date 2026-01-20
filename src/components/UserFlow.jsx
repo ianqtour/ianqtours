@@ -16,12 +16,26 @@ import { Label } from '@/components/ui/label'
 const UserFlow = ({ onAdminClick, initialExcursion }) => {
   const navigate = useNavigate()
   const { toast } = useToast()
-  const [step, setStep] = useState(1);
-  const [selectedExcursion, setSelectedExcursion] = useState(null);
-  const [selectedBus, setSelectedBus] = useState(null);
-  const [selectedSeats, setSelectedSeats] = useState([]);
-  const [passengers, setPassengers] = useState([]);
-  const [bookingId, setBookingId] = useState(null);
+
+  const getSavedState = () => {
+    try {
+      const saved = localStorage.getItem('user_flow_state');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const savedState = getSavedState();
+
+  // Se initialExcursion for fornecido, ignoramos o savedState para excursão e step, mas mantemos o resto zerado
+  const [step, setStep] = useState(initialExcursion ? 2 : (savedState.step || 1));
+  const [selectedExcursion, setSelectedExcursion] = useState(initialExcursion || savedState.selectedExcursion || null);
+  const [selectedBus, setSelectedBus] = useState(initialExcursion ? null : (savedState.selectedBus || null));
+  const [selectedSeats, setSelectedSeats] = useState(initialExcursion ? [] : (savedState.selectedSeats || []));
+  const [passengers, setPassengers] = useState(initialExcursion ? [] : (savedState.passengers || []));
+  const [bookingId, setBookingId] = useState(initialExcursion ? null : (savedState.bookingId || null));
+  
   const [pendingLinks, setPendingLinks] = useState(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [cpfOpen, setCpfOpen] = useState(false)
@@ -33,10 +47,32 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
 
   useEffect(() => {
     if (initialExcursion) {
+      // Se veio uma nova excursão via props (navegação explícita), limpamos o storage antigo
+      // Mas o useState já cuidou da inicialização.
+      // Precisamos garantir que o storage seja atualizado com o novo estado limpo.
+      // Porém, o useEffect de persistência abaixo vai rodar e salvar o novo estado.
       setSelectedExcursion(initialExcursion)
       setStep(2)
+      // Resetar outros estados para garantir
+      setSelectedBus(null)
+      setSelectedSeats([])
+      setPassengers([])
+      setBookingId(null)
+      localStorage.removeItem('passenger_registration_data');
     }
   }, [initialExcursion])
+
+  useEffect(() => {
+    const stateToSave = {
+      step,
+      selectedExcursion,
+      selectedBus,
+      selectedSeats,
+      passengers,
+      bookingId
+    };
+    localStorage.setItem('user_flow_state', JSON.stringify(stateToSave));
+  }, [step, selectedExcursion, selectedBus, selectedSeats, passengers, bookingId]);
 
   useEffect(() => {
     if (step === 3 || step === 4) {
@@ -316,6 +352,8 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
   }
 
   const handleReset = () => {
+    localStorage.removeItem('user_flow_state');
+    localStorage.removeItem('passenger_registration_data');
     setSelectedBus(null);
     setSelectedSeats([]);
     setPassengers([]);

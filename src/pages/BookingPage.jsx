@@ -12,7 +12,10 @@ import { getUserRole } from '@/lib/authRole'
   const BookingPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isAdmin, setIsAdmin] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(() => {
+    const hasSavedFlow = localStorage.getItem('user_flow_state');
+    return !hasSavedFlow;
+  });
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState('normal');
   
@@ -22,7 +25,8 @@ import { getUserRole } from '@/lib/authRole'
       const { data } = await supabase.auth.getSession()
       if (data.session) {
         setIsAdminLoggedIn(true)
-        setIsAdmin(!(location.state && location.state.selectedExcursion))
+        const hasSavedFlow = localStorage.getItem('user_flow_state');
+        setIsAdmin(!(location.state && location.state.selectedExcursion) && !hasSavedFlow)
         const role = await getUserRole()
         setUserRole(role)
       }
@@ -32,7 +36,8 @@ import { getUserRole } from '@/lib/authRole'
       const loggedIn = !!session
       setIsAdminLoggedIn(loggedIn)
       if (loggedIn) {
-        setIsAdmin(!(location.state && location.state.selectedExcursion))
+        const hasSavedFlow = localStorage.getItem('user_flow_state');
+        setIsAdmin(!(location.state && location.state.selectedExcursion) && !hasSavedFlow)
         ;(async () => {
           const role = await getUserRole()
           setUserRole(role)
