@@ -3,15 +3,17 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { ArrowLeft, User, Shuffle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
-const PassengerRegistration = ({ seats, onSubmit, onBack, initialCpf }) => {
+const PassengerRegistration = ({ seats, onSubmit, onBack, initialCpf, initialIsRandomCpf }) => {
   const [passengers, setPassengers] = useState(
     seats.map(seat => ({
       seatNumber: seat,
       name: '',
       cpf: initialCpf || '',
+      cpf_aleatorio: initialCpf ? (initialIsRandomCpf || false) : false,
       birthDate: '',
       phone: ''
     }))
@@ -181,14 +183,29 @@ const PassengerRegistration = ({ seats, onSubmit, onBack, initialCpf }) => {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor={`cpf-${index}`} className="text-white">CPF</Label>
-                    <button
-                      type="button"
-                      onClick={() => handleInputChange(index, 'cpf', generateRandomCpf())}
-                      className="text-[#ECAE62] hover:text-[#FFD27A] transition-colors p-1"
-                      title="Gerar CPF Aleatório"
-                    >
-                      <Shuffle className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 mr-1">
+                        <Label htmlFor={`random-switch-${index}`} className="text-xs text-white/70 font-normal cursor-pointer">Aleatório</Label>
+                        <Switch
+                          id={`random-switch-${index}`}
+                          checked={passenger.cpf_aleatorio || false}
+                          onCheckedChange={(checked) => {
+                            const updated = [...passengers];
+                            updated[index].cpf_aleatorio = checked;
+                            setPassengers(updated);
+                          }}
+                          className="scale-75 origin-right"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRandomCpf(index)}
+                        className="text-[#ECAE62] hover:text-[#FFD27A] transition-colors p-1"
+                        title="Gerar CPF Aleatório"
+                      >
+                        <Shuffle className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                   <Input
                     id={`cpf-${index}`}

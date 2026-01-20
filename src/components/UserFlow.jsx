@@ -29,6 +29,7 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
   const [prefillCpf, setPrefillCpf] = useState('')
   const [confirmedPassenger, setConfirmedPassenger] = useState(null)
   const [cpfChecking, setCpfChecking] = useState(false)
+  const [isRandomCpf, setIsRandomCpf] = useState(false)
 
   useEffect(() => {
     if (initialExcursion) {
@@ -115,6 +116,7 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
           cpf: String(p.cpf || '').replace(/\D/g, ''),
           data_nascimento: toIsoBirth(p.birthDate) || null,
           telefone: p.phone,
+          cpf_aleatorio: p.cpf_aleatorio || false
         })
         .select('id')
         .single()
@@ -265,8 +267,11 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
     let d2 = (sum * 10) % 11; if (d2 === 10) d2 = 0
     return d2 === parseInt(cpf[10])
   }
-  const handleCpfChange = (e) => setCpfValue(formatCpf(e.target.value))
-  const handleCpfCancel = () => { setCpfOpen(false); setCpfValue(''); setPrefillCpf('') }
+  const handleCpfChange = (e) => {
+    setCpfValue(formatCpf(e.target.value))
+    setIsRandomCpf(false)
+  }
+  const handleCpfCancel = () => { setCpfOpen(false); setCpfValue(''); setPrefillCpf(''); setIsRandomCpf(false) }
   const handleCpfConfirm = async () => {
     const valid = validateCpf(cpfValue)
     if (!valid) {
@@ -382,8 +387,9 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
             <PassengerRegistration
               seats={selectedSeats}
               initialCpf={prefillCpf}
+              initialIsRandomCpf={isRandomCpf}
               onSubmit={handlePassengersSubmit}
-              onBack={() => { setPrefillCpf(''); setCpfValue(''); setStep(3) }}
+              onBack={() => { setPrefillCpf(''); setCpfValue(''); setIsRandomCpf(false); setStep(3) }}
             />
           </motion.div>
         )}
