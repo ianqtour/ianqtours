@@ -3,8 +3,9 @@ import { motion } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Calendar, MapPin, Users, Armchair, BadgeDollarSign, CheckCircle, AlertTriangle, RotateCcw } from 'lucide-react'
+import { Calendar, MapPin, Users, Armchair, BadgeDollarSign, CheckCircle, AlertTriangle, RotateCcw, Pencil } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -353,6 +354,67 @@ const FinanceManagement = () => {
   const [payMethodInst, setPayMethodInst] = useState(null)
   const [payMethod, setPayMethod] = useState('')
   const [payMethodSaving, setPayMethodSaving] = useState(false)
+
+  const [editingInstallment, setEditingInstallment] = useState(null)
+  const [editDate, setEditDate] = useState('')
+  const [editValue, setEditValue] = useState('')
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
+
+  const handleOpenEdit = (inst) => {
+    setEditingInstallment(inst)
+    setEditDate(inst.vencimento)
+    setEditValue(inst.valor)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingInstallment) return
+    setIsSavingEdit(true)
+    try {
+      const val = Number(editValue)
+      const { error } = await supabase
+        .from('finance_installments')
+        .update({ vencimento: editDate, valor: val })
+        .eq('id', editingInstallment.id)
+
+      if (error) throw error
+
+      const updated = currentInstallments.map(i => i.id === editingInstallment.id ? { ...i, vencimento: editDate, valor: val } : i)
+      setCurrentInstallments(updated)
+
+      // Update booking stats
+      const total = updated.reduce((acc, i) => acc + Number(i.valor || 0), 0)
+      const paid = updated.filter(i => String(i.status) === 'pago').reduce((acc, i) => acc + Number(i.valor || 0), 0)
+      const overdue = updated.filter(i => String(i.status) === 'atrasado').reduce((acc, i) => acc + Number(i.valor || 0), 0)
+      const pct = total > 0 ? Math.round((paid / total) * 100) : 0
+      const hasOverdue = updated.some(i => String(i.status) === 'atrasado')
+
+      if (openViewPlan && currentPlan) {
+        const bid = openViewPlan.booking.id
+        const pid = openViewPlan.passenger.passageiroId
+        setBookings(prev => prev.map(b => {
+          if (b.id !== bid) return b
+          return {
+            ...b,
+            passengers: b.passengers.map(p => p.passageiroId === String(pid) ? {
+              ...p,
+              progressPercent: pct,
+              hasOverdue,
+              totalAmount: total,
+              paidAmount: paid,
+              overdueAmount: overdue
+            } : p)
+          }
+        }))
+      }
+
+      toast({ title: 'Sucesso', description: 'Parcela atualizada.' })
+      setEditingInstallment(null)
+    } catch (err) {
+      toast({ title: 'Erro', description: err.message || 'Falha ao atualizar.', variant: 'destructive' })
+    } finally {
+      setIsSavingEdit(false)
+    }
+  }
 
   const openPayMethod = (inst) => {
     setPayMethodInst(inst)
@@ -824,7 +886,10 @@ const FinanceManagement = () => {
                   <p className="text-white/70 text-sm">Nenhuma parcela encontrada.</p>
                 ) : (
                   currentInstallments.map((inst) => (
-                    <div key={inst.id} className="flex items-center justify-between bg-white/5 rounded-lg p-3 border border-white/10 min-h-[96px]">
+                    <div
+                      key={inst.id}
+                      className="flex items-center justify-between bg-white/5 rounded-lg p-3 border border-white/10 min-h-[96px] hover:bg-white/10 transition-colors"
+                    >
                       <div className="text-sm">
                         <p className="font-semibold text-white">Parcela #{inst.numero}</p>
                         <p className="text-white/80">Vencimento: {formatDate(inst.vencimento)}</p>
@@ -834,6 +899,15 @@ const FinanceManagement = () => {
                         </p>
                       </div>
                       <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleOpenEdit(inst)}
+                          size="icon"
+                          variant="ghost"
+                          className="text-white hover:bg-white/20 h-8 w-8"
+                          title="Editar parcela"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                         {inst.status !== 'pago' && (
                           <Button
                             onClick={() => openPayMethod(inst)}
@@ -893,6 +967,41 @@ const FinanceManagement = () => {
             </Button>
             <Button onClick={confirmPayMethod} disabled={payMethodSaving} className="flex-1 bg-green-500 hover:bg-green-600 text-white">
               {payMethodSaving ? 'Salvando...' : 'Confirmar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingInstallment} onOpenChange={(open) => !open && setEditingInstallment(null)}>
+        <DialogContent className="bg-[#0F172A] border-white/20 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar Parcela #{editingInstallment?.numero}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Data de Vencimento</Label>
+              <Input
+                type="date"
+                value={editDate}
+                onChange={e => setEditDate(e.target.value)}
+                className="bg-white/10 border-white/20 text-white"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Valor (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={editValue}
+                onChange={e => setEditValue(e.target.value)}
+                className="bg-white/10 border-white/20 text-white"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingInstallment(null)} className="text-white hover:bg-white/10">Cancelar</Button>
+            <Button onClick={handleSaveEdit} disabled={isSavingEdit} className="bg-[#ECAE62] hover:bg-[#8C641C] text-[#0B1420]">
+              {isSavingEdit ? 'Salvando...' : 'Salvar'}
             </Button>
           </DialogFooter>
         </DialogContent>

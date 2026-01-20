@@ -6,7 +6,7 @@ import SeatSelection from '@/components/user/SeatSelection';
 import PassengerRegistration from '@/components/user/PassengerRegistration';
 import BookingConfirmation from '@/components/user/BookingConfirmation';
 import { Button } from '@/components/ui/button';
-import { Settings } from 'lucide-react';
+import { Settings, Shuffle } from 'lucide-react';
 import { supabase } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/components/ui/use-toast'
@@ -70,6 +70,20 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
     if (!s) return ''
     return new Date(s).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
   }
+
+  const generateRandomCpf = () => {
+    const rnd = (n) => Math.round(Math.random() * n);
+    const mod = (base, div) => Math.round(base - (Math.floor(base / div) * div));
+    const n = Array(9).fill(0).map(() => rnd(9));
+    let d1 = n.reduce((acc, val, i) => acc + val * (10 - i), 0);
+    d1 = 11 - mod(d1, 11);
+    if (d1 >= 10) d1 = 0;
+    let d2 = n.reduce((acc, val, i) => acc + val * (11 - i), 0) + d1 * 2;
+    d2 = 11 - mod(d2, 11);
+    if (d2 >= 10) d2 = 0;
+    const cpf = [...n, d1, d2].join('');
+    return formatCpf(cpf);
+  };
 
   const handleExcursionSelect = (excursion) => {
     setSelectedExcursion(excursion);
@@ -398,7 +412,17 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
           <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl w-full max-w-md p-6">
             <h3 className="text-2xl font-bold text-white mb-3">Informe seu CPF</h3>
             <div className="space-y-2 mb-4">
-              <Label className="text-white">CPF</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-white">CPF</Label>
+                <button
+                  type="button"
+                  onClick={() => setCpfValue(generateRandomCpf())}
+                  className="text-[#ECAE62] hover:text-[#FFD27A] transition-colors p-1"
+                  title="Gerar CPF Aleatório"
+                >
+                  <Shuffle className="h-4 w-4" />
+                </button>
+              </div>
               <Input value={cpfValue} onChange={handleCpfChange} placeholder="000.000.000-00" className={`bg-white/10 border ${cpfValue.replace(/\D/g,'').length===11 && !validateCpf(cpfValue)?'border-red-500':'border-white/20'} text-white placeholder:text-white/50`} />
               {cpfValue.replace(/\D/g,'').length===11 && !validateCpf(cpfValue) && (
                 <p className="text-red-400 text-xs">CPF inválido</p>
