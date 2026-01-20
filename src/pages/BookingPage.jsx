@@ -13,6 +13,9 @@ import { getUserRole } from '@/lib/authRole'
   const location = useLocation();
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(() => {
+    if (location.pathname === '/admin') return true;
+    if (location.state?.adminMode) return true;
+    if (location.state?.selectedExcursion) return false;
     const hasSavedFlow = localStorage.getItem('user_flow_state');
     return !hasSavedFlow;
   });
@@ -25,8 +28,12 @@ import { getUserRole } from '@/lib/authRole'
       const { data } = await supabase.auth.getSession()
       if (data.session) {
         setIsAdminLoggedIn(true)
-        const hasSavedFlow = localStorage.getItem('user_flow_state');
-        setIsAdmin(!(location.state && location.state.selectedExcursion) && !hasSavedFlow)
+        if (location.pathname === '/admin' || location.state?.adminMode) {
+          setIsAdmin(true)
+        } else {
+          const hasSavedFlow = localStorage.getItem('user_flow_state');
+          setIsAdmin(!(location.state && location.state.selectedExcursion) && !hasSavedFlow)
+        }
         const role = await getUserRole()
         setUserRole(role)
       }
@@ -36,8 +43,12 @@ import { getUserRole } from '@/lib/authRole'
       const loggedIn = !!session
       setIsAdminLoggedIn(loggedIn)
       if (loggedIn) {
-        const hasSavedFlow = localStorage.getItem('user_flow_state');
-        setIsAdmin(!(location.state && location.state.selectedExcursion) && !hasSavedFlow)
+        if (location.pathname === '/admin') {
+          setIsAdmin(true)
+        } else {
+          const hasSavedFlow = localStorage.getItem('user_flow_state');
+          setIsAdmin(!(location.state && location.state.selectedExcursion) && !hasSavedFlow)
+        }
         ;(async () => {
           const role = await getUserRole()
           setUserRole(role)
@@ -50,12 +61,20 @@ import { getUserRole } from '@/lib/authRole'
   }, [])
 
   useEffect(() => {
+    if (location.pathname === '/admin') {
+      setIsAdmin(true)
+      return
+    }
+    if (location.state?.adminMode) {
+      setIsAdmin(true)
+      return
+    }
     const selectedExcursion = location.state && location.state.selectedExcursion
     if (selectedExcursion) {
       setIsAdmin(false)
       window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
     }
-  }, [location.state])
+  }, [location.state, location.pathname])
 
   const handleAdminLogin = (success) => {
     if (success) {

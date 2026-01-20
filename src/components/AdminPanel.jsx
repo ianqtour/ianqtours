@@ -37,7 +37,11 @@ const AdminPanel = ({ onLogout, onBack, onStartReservation, role = 'admin' }) =>
             </Button>
             {role === 'admin' && (
               <Button
-                onClick={onStartReservation}
+                onClick={() => {
+                  localStorage.removeItem('user_flow_state');
+                  localStorage.removeItem('passenger_registration_data');
+                  onStartReservation();
+                }}
                 size="sm"
                 className="bg-[#ECAE62] hover:bg-[#8C641C] text-[#0B1420]"
               >

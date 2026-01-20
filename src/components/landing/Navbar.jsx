@@ -109,7 +109,7 @@ const Navbar = ({ adminBackAction, disableDesktopButtons = false, disableMobileM
             <RouterLink to="/meus-ingressos" onClick={() => setIsMenuOpen(false)}>Meus Ingressos</RouterLink>
           </Button>
           <Button asChild className="w-4/5 bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20">
-            <RouterLink to="/admin" onClick={() => setIsMenuOpen(false)}>Área Admin</RouterLink>
+            <RouterLink to="/admin" state={{ adminMode: true }} onClick={() => setIsMenuOpen(false)}>Área Admin</RouterLink>
           </Button>
         </motion.div>
       )}
