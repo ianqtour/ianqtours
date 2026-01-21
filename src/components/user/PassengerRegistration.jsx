@@ -24,7 +24,15 @@ const PassengerRegistration = ({ seats, onSubmit, onBack, initialCpf, initialIsR
         const parsed = JSON.parse(saved);
         return initial.map(p => {
           const savedP = parsed.find(sp => sp.seatNumber === p.seatNumber);
-          return savedP ? { ...p, ...savedP } : p;
+          if (savedP) {
+            return {
+              ...p,
+              ...savedP,
+              cpf: initialCpf || savedP.cpf,
+              cpf_aleatorio: initialCpf ? (initialIsRandomCpf || false) : savedP.cpf_aleatorio
+            };
+          }
+          return p;
         });
       } catch (e) {
         return initial;

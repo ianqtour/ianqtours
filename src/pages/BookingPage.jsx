@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import UserFlow from '@/components/UserFlow';
 import AdminPanel from '@/components/AdminPanel';
 import AdminLogin from '@/components/AdminLogin';
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import Footer from '@/components/landing/Footer'
 import { getUserRole } from '@/lib/authRole'
- 
+
 
   const BookingPage = () => {
   const location = useLocation();
@@ -19,6 +19,12 @@ import { getUserRole } from '@/lib/authRole'
     const hasSavedFlow = localStorage.getItem('user_flow_state');
     return !hasSavedFlow;
   });
+  const isBookingModeRef = useRef(!isAdmin);
+
+  useEffect(() => {
+    isBookingModeRef.current = !isAdmin;
+  }, [isAdmin]);
+
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState('normal');
   
@@ -29,7 +35,10 @@ import { getUserRole } from '@/lib/authRole'
       if (data.session) {
         setIsAdminLoggedIn(true)
         if (location.pathname === '/admin' || location.state?.adminMode) {
-          setIsAdmin(true)
+          // Only force admin if not in booking mode
+          if (!isBookingModeRef.current) {
+             setIsAdmin(true)
+          }
         } else {
           const hasSavedFlow = localStorage.getItem('user_flow_state');
           setIsAdmin(!(location.state && location.state.selectedExcursion) && !hasSavedFlow)
@@ -44,7 +53,10 @@ import { getUserRole } from '@/lib/authRole'
       setIsAdminLoggedIn(loggedIn)
       if (loggedIn) {
         if (location.pathname === '/admin') {
-          setIsAdmin(true)
+           // Only force admin if not in booking mode
+           if (!isBookingModeRef.current) {
+              setIsAdmin(true)
+           }
         } else {
           const hasSavedFlow = localStorage.getItem('user_flow_state');
           setIsAdmin(!(location.state && location.state.selectedExcursion) && !hasSavedFlow)
@@ -62,7 +74,9 @@ import { getUserRole } from '@/lib/authRole'
 
   useEffect(() => {
     if (location.pathname === '/admin') {
-      setIsAdmin(true)
+      if (!isBookingModeRef.current) {
+        setIsAdmin(true)
+      }
       return
     }
     if (location.state?.adminMode) {
@@ -112,7 +126,13 @@ import { getUserRole } from '@/lib/authRole'
         </div>
       </div>
       {!isAdmin ? (
-        <UserFlow onAdminClick={() => setIsAdmin(true)} initialExcursion={location.state?.selectedExcursion} />
+        <UserFlow 
+          onAdminClick={() => {
+            localStorage.removeItem('user_flow_state');
+            setIsAdmin(true);
+          }} 
+          initialExcursion={location.state?.selectedExcursion} 
+        />
       ) : (
         <>
           {!isAdminLoggedIn ? (
