@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, Edit, Bus } from 'lucide-react';
+import { Plus, Trash2, Edit, Bus, MessageCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Select,
@@ -162,6 +162,39 @@ const BusManagement = () => {
     return (bus.seats || []).filter(seat => seat.status === 'available').length;
   };
 
+  const getOccupiedSeats = (bus) => {
+    return (bus.seats || []).filter(seat => seat.status === 'occupied').length;
+  };
+
+  const handleSendWhatsapp = async (busId) => {
+    try {
+      const response = await fetch('https://n8n-n8n.j6kpgx.easypanel.host/webhook/resumo_assentos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ bus_id: busId }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Sucesso",
+          description: "Solicitação enviada para o WhatsApp.",
+          className: "bg-green-500 text-white border-none"
+        });
+      } else {
+        throw new Error('Falha ao enviar');
+      }
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Erro",
+        description: "Erro ao enviar solicitação.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {!isAdding ? (
@@ -232,6 +265,15 @@ const BusManagement = () => {
                       Excluir
                     </Button>
                   </div>
+                  <Button
+                    onClick={() => handleSendWhatsapp(bus.id)}
+                    size="sm"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={getOccupiedSeats(bus) === 0}
+                  >
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    Enviar Whatsapp
+                  </Button>
                 </motion.div>
               ))}
             </div>
