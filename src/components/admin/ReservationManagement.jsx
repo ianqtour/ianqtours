@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar, MapPin, Bus, Users, Trash2, Eye, Armchair, X, CheckCircle, Pencil } from 'lucide-react';
+import { Calendar, MapPin, Bus, Users, Trash2, Eye, Armchair, X, CheckCircle, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Dialog,
@@ -38,6 +38,8 @@ const ReservationManagement = ({ allowCancel = true }) => {
   const [editSeatNumber, setEditSeatNumber] = useState('');
   const [seatOptions, setSeatOptions] = useState([]);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   const normalizeText = (s) => (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const formatDate = (dateStr) => {
@@ -454,29 +456,47 @@ const ReservationManagement = ({ allowCancel = true }) => {
     })
   };
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchText, presenceFilter, selectedExcursionId, selectedBusId]);
+
+  const getFilteredBookings = () => {
+    let filtered = bookings;
+    
+    if (searchText) {
+      filtered = filtered.filter(b =>
+        b.passengers.some(p =>
+          normalizeText(p.name).includes(normalizeText(searchText)) ||
+          String(p.seatNumber).includes(searchText)
+        )
+      )
+    }
+    
+    if (presenceFilter === 'present') {
+      filtered = filtered.filter(b => b.passengers.length > 0 && b.passengers.some(p => p.presente === true || p.presente === 'true'))
+    } else if (presenceFilter === 'absent') {
+      filtered = filtered.filter(b => b.passengers.length > 0 && b.passengers.some(p => p.presente === false || p.presente === 'false'))
+    }
+    
+    return filtered;
+  };
+
+  const filteredBookings = getFilteredBookings();
+  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedBookings = filteredBookings.slice(startIndex, startIndex + itemsPerPage);
+
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
   return (
     <div className="space-y-3 md:space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <h2 className="text-xl sm:text-2xl font-bold text-white">Reservas</h2>
-        <div className="text-sm sm:text-base text-white/70">Total: <span className="text-white font-bold">{
-          (() => {
-            let filtered = bookings
-            if (searchText) {
-              filtered = filtered.filter(b =>
-                b.passengers.some(p =>
-                  normalizeText(p.name).includes(normalizeText(searchText)) ||
-                  String(p.seatNumber).includes(searchText)
-                )
-              )
-            }
-            if (presenceFilter === 'present') {
-              filtered = filtered.filter(b => b.passengers.length > 0 && b.passengers.some(p => p.presente === true))
-            } else if (presenceFilter === 'absent') {
-              filtered = filtered.filter(b => b.passengers.length > 0 && b.passengers.some(p => p.presente === false))
-            }
-            return filtered.length
-          })()
-        }</span></div>
+        <div className="text-sm sm:text-base text-white/70">Total: <span className="text-white font-bold">{filteredBookings.length}</span></div>
       </div>
 
       <div className="bg-white/5 rounded-xl p-3 md:p-4 border border-white/10">
@@ -528,34 +548,13 @@ const ReservationManagement = ({ allowCancel = true }) => {
         </div>
       </div>
 
-      {bookings.length === 0 ? (
+      {filteredBookings.length === 0 ? (
         <div className="bg-white/5 rounded-xl p-6 md:p-12 text-center">
           <p className="text-white/70 text-sm sm:text-base">Nenhuma reserva encontrada.</p>
         </div>
       ) : (
         <div className="space-y-3 md:space-y-4">
-          {bookings
-            .filter(b => {
-              // Filtro de busca
-              if (searchText) {
-                const matchesSearch = b.passengers.some(p =>
-                  normalizeText(p.name).includes(normalizeText(searchText)) ||
-                  String(p.seatNumber).includes(searchText)
-                )
-                if (!matchesSearch) return false
-              }
-              
-              // Filtro de presença
-              if (presenceFilter === 'all') return true
-              if (presenceFilter === 'present') {
-                return b.passengers.length > 0 && b.passengers.some(p => p.presente === true || p.presente === 'true')
-              }
-              if (presenceFilter === 'absent') {
-                return b.passengers.length > 0 && b.passengers.some(p => p.presente === false || p.presente === 'false')
-              }
-              return true
-            })
-            .map((booking, index) => (
+          {paginatedBookings.map((booking, index) => (
             <motion.div
               key={booking.id}
               initial={{ opacity: 0, y: 20 }}
@@ -632,6 +631,35 @@ const ReservationManagement = ({ allowCancel = true }) => {
               </div>
             </motion.div>
           ))}
+        </div>
+      )}
+
+      {/* Controles de Paginação */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="border-white/20 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 disabled:opacity-50"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          
+          <div className="text-white/70 text-sm">
+            Página <span className="text-white font-bold">{currentPage}</span> de <span className="text-white font-bold">{totalPages}</span>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="border-white/20 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 disabled:opacity-50"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       )}
 
