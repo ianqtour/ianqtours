@@ -633,6 +633,8 @@ const FinanceManagement = () => {
 
     return booking.passengers
       .filter(p => {
+        if (statusFilter === 'has_plan') return p.hasPlan === true
+        if (statusFilter === 'no_plan') return p.hasPlan === false
         if (statusFilter === 'overdue') return p.hasOverdue === true
         if (statusFilter === 'in_days') return p.hasOverdue === false
         return true
@@ -688,6 +690,8 @@ const FinanceManagement = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="has_plan">Com plano</SelectItem>
+                <SelectItem value="no_plan">Sem plano</SelectItem>
                 <SelectItem value="in_days">Em dias</SelectItem>
                 <SelectItem value="overdue">Inadimplentes</SelectItem>
               </SelectContent>
