@@ -156,6 +156,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
       const ref = passengerByIdMap.get(String(p.passageiro_id)) || {}
       arr.push({
         id: p.id,
+        passageiroId: p.passageiro_id,
         seatNumber: Number(p.numero_assento),
         name: ref.nome || '',
         email: ref.email || '',
@@ -329,6 +330,14 @@ const ReservationManagement = ({ allowCancel = true }) => {
             numero_assento: newSeat,
           })
           .eq('id', editPassenger.id);
+
+        // Atualizar o plano de pagamento se existir
+        await supabase
+          .from('finance_payment_plans')
+          .update({ reserva_id: newRes.id })
+          .eq('reserva_id', editBooking.id)
+          .eq('passageiro_id', editPassenger.passageiroId);
+
         await supabase
           .from('assentos_onibus')
           .update({ status: 'disponivel' })
