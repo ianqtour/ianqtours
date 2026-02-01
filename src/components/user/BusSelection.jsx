@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Bus, Users, Calendar } from 'lucide-react';
+import { ArrowLeft, Bus, Users, Calendar, Eye } from 'lucide-react';
 import { supabase } from '@/lib/supabase'
 
 const BusSelection = ({ excursion, onSelect, onBack }) => {
@@ -189,10 +189,18 @@ const BusSelection = ({ excursion, onSelect, onBack }) => {
 
                 <Button
                   onClick={() => onSelect(bus)}
-                  disabled={getAvailableSeats(bus) === 0}
-                  className="w-full bg-[#ECAE62] hover:bg-[#8C641C] text-white disabled:opacity-50"
+                  className={`w-full text-white transition-all duration-300 ${
+                    getAvailableSeats(bus) === 0 
+                      ? 'bg-white/5 hover:bg-white/10 border border-white/10' 
+                      : 'bg-[#ECAE62] hover:bg-[#8C641C]'
+                  }`}
                 >
-                  {getAvailableSeats(bus) === 0 ? 'Esgotado' : 'Selecionar Ônibus'}
+                  {getAvailableSeats(bus) === 0 ? (
+                    <div className="flex items-center justify-center">
+                      <Eye className="mr-2 h-4 w-4" />
+                      Esgotado (Visualizar)
+                    </div>
+                  ) : 'Selecionar Ônibus'}
                 </Button>
               </motion.div>
             ))}
