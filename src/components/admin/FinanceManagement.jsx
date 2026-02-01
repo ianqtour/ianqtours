@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Calendar, MapPin, Users, Armchair, BadgeDollarSign, CheckCircle, AlertTriangle, RotateCcw, Pencil, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Calendar, MapPin, Users, Armchair, BadgeDollarSign, CheckCircle, AlertTriangle, RotateCcw, Pencil, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -417,6 +417,11 @@ const FinanceManagement = () => {
   const [editValue, setEditValue] = useState('')
   const [isSavingEdit, setIsSavingEdit] = useState(false)
 
+  const [isAddingInstallment, setIsAddingInstallment] = useState(false)
+  const [newInstValue, setNewInstValue] = useState('')
+  const [newInstDate, setNewInstDate] = useState('')
+  const [isSavingNewInst, setIsSavingNewInst] = useState(false)
+
   const handleOpenEdit = (inst) => {
     setEditingInstallment(inst)
     setEditDate(inst.vencimento)
@@ -470,6 +475,101 @@ const FinanceManagement = () => {
       toast({ title: 'Erro', description: err.message || 'Falha ao atualizar.', variant: 'destructive' })
     } finally {
       setIsSavingEdit(false)
+    }
+  }
+
+  const handleAddInstallment = async () => {
+    if (!currentPlan) return
+    if (!newInstValue || !newInstDate) {
+      toast({ title: 'Campos obrigatórios', description: 'Informe o valor e a data de vencimento.', variant: 'destructive' })
+      return
+    }
+
+    setIsSavingNewInst(true)
+    try {
+      const val = Number(newInstValue.toString().replace(',', '.'))
+      if (isNaN(val) || val <= 0) {
+        throw new Error('Valor inválido')
+      }
+
+      // Converter DD/MM/YYYY para YYYY-MM-DD
+      const dateParts = newInstDate.split('/')
+      if (dateParts.length !== 3) {
+        throw new Error('Data inválida. Use o formato DD/MM/AAAA')
+      }
+      const isoDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`
+
+      // Determinar o próximo número
+      const maxNumero = currentInstallments.reduce((max, i) => Math.max(max, i.numero), 0)
+      const nextNumero = maxNumero + 1
+
+      // 1. Inserir a nova parcela
+      const { data: newInst, error: instError } = await supabase
+        .from('finance_installments')
+        .insert({
+          plano_id: currentPlan.id,
+          numero: nextNumero,
+          vencimento: isoDate,
+          valor: val,
+          status: 'pendente'
+        })
+        .select()
+        .single()
+
+      if (instError) throw instError
+
+      // 2. Atualizar o plano (parcelas_total e parcela_valor)
+      // O parcelas_total é a quantidade de parcelas regulares (numero > 0)
+      const newTotalCount = currentInstallments.filter(i => i.numero > 0).length + 1
+      const { error: planUpdateError } = await supabase
+        .from('finance_payment_plans')
+        .update({
+          parcelas_total: newTotalCount,
+          parcela_valor: val
+        })
+        .eq('id', currentPlan.id)
+
+      if (planUpdateError) throw planUpdateError
+
+      // 3. Atualizar estados locais
+      const updatedInsts = [...currentInstallments, newInst].sort((a, b) => a.numero - b.numero)
+      setCurrentInstallments(updatedInsts)
+      setCurrentPlan(prev => ({ ...prev, parcelas_total: newTotalCount, parcela_valor: val }))
+
+      // 4. Atualizar estatísticas das reservas
+      const total = updatedInsts.reduce((acc, i) => acc + Number(i.valor || 0), 0)
+      const paid = updatedInsts.filter(i => String(i.status) === 'pago').reduce((acc, i) => acc + Number(i.valor || 0), 0)
+      const overdue = updatedInsts.filter(i => String(i.status) === 'atrasado').reduce((acc, i) => acc + Number(i.valor || 0), 0)
+      const pct = total > 0 ? Math.round((paid / total) * 100) : 0
+      const hasOverdue = updatedInsts.some(i => String(i.status) === 'atrasado')
+
+      if (openViewPlan) {
+        const bid = openViewPlan.booking.id
+        const pid = openViewPlan.passenger.passageiroId
+        setBookings(prev => prev.map(b => {
+          if (b.id !== bid) return b
+          return {
+            ...b,
+            passengers: b.passengers.map(p => p.passageiroId === String(pid) ? {
+              ...p,
+              progressPercent: pct,
+              hasOverdue,
+              totalAmount: total,
+              paidAmount: paid,
+              overdueAmount: overdue
+            } : p)
+          }
+        }))
+      }
+
+      toast({ title: 'Sucesso', description: `Parcela #${nextNumero} adicionada.` })
+      setIsAddingInstallment(false)
+      setNewInstValue('')
+      setNewInstDate('')
+    } catch (err) {
+      toast({ title: 'Erro', description: err.message || 'Falha ao adicionar parcela.', variant: 'destructive' })
+    } finally {
+      setIsSavingNewInst(false)
     }
   }
 
@@ -854,7 +954,7 @@ const FinanceManagement = () => {
       )}
 
       <Dialog open={!!openPlanFor} onOpenChange={() => setOpenPlanFor(null)}>
-        <DialogContent className="bg-[#0F172A] border-white/20 text-white max-w-lg">
+        <DialogContent className="bg-[#0F172A] border-white/20 text-white max-w-lg [&>button:last-child]:hidden">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl">Criar Plano de Pagamento</DialogTitle>
             <DialogDescription className="text-white/80 text-sm">
@@ -950,13 +1050,36 @@ const FinanceManagement = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!openViewPlan} onOpenChange={() => setOpenViewPlan(null)}>
-        <DialogContent className="bg-[#0F172A] border-white/20 text-white w-full max-w-md sm:max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0">
+      <Dialog open={!!openViewPlan} onOpenChange={() => {
+        setOpenViewPlan(null)
+        setIsAddingInstallment(false)
+        setNewInstValue('')
+        setNewInstDate('')
+      }}>
+        <DialogContent className="bg-[#0F172A] border-white/20 text-white w-full max-w-md sm:max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0 [&>button:last-child]:hidden">
           <DialogHeader className="p-6 pb-2">
-            <DialogTitle className="text-lg sm:text-xl">Plano de Pagamento</DialogTitle>
-            <DialogDescription className="text-white/80 text-sm">
-              Visualize e atualize o status das parcelas.
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-lg sm:text-xl">Plano de Pagamento</DialogTitle>
+                <DialogDescription className="text-white/80 text-sm">
+                  Visualize e atualize o status das parcelas.
+                </DialogDescription>
+              </div>
+              <Button
+                  onClick={() => {
+                    if (!isAddingInstallment) {
+                      setNewInstDate('')
+                      setNewInstValue('')
+                    }
+                    setIsAddingInstallment(!isAddingInstallment)
+                  }}
+                 size="sm"
+                 className="bg-[#ECAE62] hover:bg-[#8C641C] text-[#0B1420]"
+               >
+                {isAddingInstallment ? <RotateCcw className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                {isAddingInstallment ? 'Cancelar' : 'Adicionar Parcela'}
+              </Button>
+            </div>
           </DialogHeader>
           
           {currentPlan ? (
@@ -969,6 +1092,49 @@ const FinanceManagement = () => {
                   Primeiro pagamento: <span className="font-bold text-white">{formatDate(currentPlan.primeiro_pagamento_data)}</span>
                 </p>
               </div>
+
+              {isAddingInstallment && (
+                <div className="bg-white/10 rounded-xl p-4 border border-[#ECAE62]/30 mb-4 space-y-3">
+                  <h4 className="text-sm font-bold text-[#ECAE62]">Nova Parcela</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Vencimento</Label>
+                      <Input
+                        type="text"
+                        placeholder="DD/MM/AAAA"
+                        value={newInstDate}
+                        onChange={e => {
+                          let v = e.target.value.replace(/\D/g, '')
+                          if (v.length > 8) v = v.slice(0, 8)
+                          if (v.length > 4) v = v.slice(0, 2) + '/' + v.slice(2, 4) + '/' + v.slice(4)
+                          else if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2)
+                          setNewInstDate(v)
+                        }}
+                        className="bg-white/5 border-white/20 text-white h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Valor (R$)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={newInstValue}
+                        onChange={e => setNewInstValue(e.target.value)}
+                        placeholder="0,00"
+                        className="bg-white/5 border-white/20 text-white h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleAddInstallment}
+                    disabled={isSavingNewInst}
+                    size="sm"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {isSavingNewInst ? 'Salvando...' : 'Confirmar Nova Parcela'}
+                  </Button>
+                </div>
+              )}
 
               <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
                 {currentInstallments.length === 0 ? (
@@ -1021,8 +1187,7 @@ const FinanceManagement = () => {
                             <Button
                               onClick={() => markInstallmentPending(inst)}
                               size="sm"
-                              variant="outline"
-                              className="border-white/20 text-white hover:bg-white/10 font-semibold flex-1 sm:flex-none"
+                              className="bg-white text-[#0B1420] hover:bg-white/90 font-semibold flex-1 sm:flex-none"
                             >
                               <RotateCcw className="h-4 w-4 mr-2" />
                               <span className="sm:hidden">Reverter</span>
@@ -1045,7 +1210,7 @@ const FinanceManagement = () => {
       </Dialog>
 
       <Dialog open={payMethodOpen} onOpenChange={setPayMethodOpen}>
-        <DialogContent className="bg-[#0F172A] border-white/20 text-white max-w-sm">
+        <DialogContent className="bg-[#0F172A] border-white/20 text-white max-w-sm [&>button:last-child]:hidden">
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg">Forma de Pagamento</DialogTitle>
             <DialogDescription className="text-white/80 text-sm">
@@ -1076,7 +1241,7 @@ const FinanceManagement = () => {
       </Dialog>
 
       <Dialog open={!!editingInstallment} onOpenChange={(open) => !open && setEditingInstallment(null)}>
-        <DialogContent className="bg-[#0F172A] border-white/20 text-white max-w-sm">
+        <DialogContent className="bg-[#0F172A] border-white/20 text-white max-w-sm [&>button:last-child]:hidden">
           <DialogHeader>
             <DialogTitle>Editar Parcela #{editingInstallment?.numero}</DialogTitle>
           </DialogHeader>
