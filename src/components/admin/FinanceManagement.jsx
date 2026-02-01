@@ -951,71 +951,85 @@ const FinanceManagement = () => {
       </Dialog>
 
       <Dialog open={!!openViewPlan} onOpenChange={() => setOpenViewPlan(null)}>
-        <DialogContent className="bg-[#0F172A] border-white/20 text-white w-full max-w-md sm:max-w-2xl max-h-[85vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="bg-[#0F172A] border-white/20 text-white w-full max-w-md sm:max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0">
+          <DialogHeader className="p-6 pb-2">
             <DialogTitle className="text-lg sm:text-xl">Plano de Pagamento</DialogTitle>
             <DialogDescription className="text-white/80 text-sm">
               Visualize e atualize o status das parcelas.
             </DialogDescription>
           </DialogHeader>
+          
           {currentPlan ? (
-            <div className="space-y-3 flex-1">
-              <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-                <p className="text-sm">
-                  Entrada: <span className="font-semibold">R$ {Number(currentPlan.entrada_valor || 0).toFixed(2)}</span> •
-                  Parcela: <span className="font-semibold">R$ {Number(currentPlan.parcela_valor || 0).toFixed(2)}</span> •
-                  Quantidade: <span className="font-semibold">{currentPlan.parcelas_total}</span> •
-                  Primeiro pagamento: <span className="font-semibold">{formatDate(currentPlan.primeiro_pagamento_data)}</span>
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden px-6 pb-6">
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10 mb-4">
+                <p className="text-sm text-white/90 leading-relaxed">
+                  Entrada: <span className="font-bold text-white">R$ {Number(currentPlan.entrada_valor || 0).toFixed(2)}</span> •
+                  Parcela: <span className="font-bold text-white">R$ {Number(currentPlan.parcela_valor || 0).toFixed(2)}</span> •
+                  Quantidade: <span className="font-bold text-white">{currentPlan.parcelas_total}</span> •
+                  Primeiro pagamento: <span className="font-bold text-white">{formatDate(currentPlan.primeiro_pagamento_data)}</span>
                 </p>
               </div>
-              <div className="space-y-2 max-h-[330px] overflow-y-auto sm:max-h-none sm:overflow-visible pr-1">
+
+              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
                 {currentInstallments.length === 0 ? (
-                  <p className="text-white/70 text-sm">Nenhuma parcela encontrada.</p>
+                  <p className="text-white/70 text-sm text-center py-8">Nenhuma parcela encontrada.</p>
                 ) : (
                   currentInstallments.map((inst) => (
                     <div
                       key={inst.id}
-                      className="flex items-center justify-between bg-white/5 rounded-lg p-3 border border-white/10 min-h-[96px] hover:bg-white/10 transition-colors"
+                      className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all duration-200"
                     >
-                      <div className="text-sm">
-                        <p className="font-semibold text-white">Parcela #{inst.numero}</p>
-                        <p className="text-white/80">Vencimento: {formatDate(inst.vencimento)}</p>
-                        <p className="text-[#ECAE62]">Valor: R$ {Number(inst.valor).toFixed(2)}</p>
-                        <p className={`text-xs mt-1 ${inst.status === 'pago' ? 'text-green-400' : inst.status === 'atrasado' ? 'text-red-400' : 'text-white/70'}`}>
-                          Status: {String(inst.status).toUpperCase()}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => handleOpenEdit(inst)}
-                          size="icon"
-                          variant="ghost"
-                          className="text-white hover:bg-white/20 h-8 w-8"
-                          title="Editar parcela"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        {inst.status !== 'pago' && (
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-base">Parcela #{inst.numero}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              inst.status === 'pago' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 
+                              inst.status === 'atrasado' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 
+                              'bg-white/10 text-white/70 border border-white/20'
+                            }`}>
+                              {String(inst.status).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="text-sm space-y-0.5">
+                            <p className="text-white/60">Vencimento: <span className="text-white/90 font-medium">{formatDate(inst.vencimento)}</span></p>
+                            <p className="text-[#ECAE62] font-semibold">Valor: R$ {Number(inst.valor).toFixed(2)}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-white/5">
                           <Button
-                            onClick={() => openPayMethod(inst)}
-                            size="sm"
-                            className="bg-green-500 hover:bg-green-600 text-white"
+                            onClick={() => handleOpenEdit(inst)}
+                            size="icon"
+                            variant="ghost"
+                            className="text-white/50 hover:text-white hover:bg-white/10 h-9 w-9"
+                            title="Editar parcela"
                           >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Marcar Pago
+                            <Pencil className="h-4 w-4" />
                           </Button>
-                        )}
-                        {inst.status === 'pago' && (
-                          <Button
-                            onClick={() => markInstallmentPending(inst)}
-                            size="sm"
-                            className="bg-white text-[#0B1420] border border-white/20 hover:bg-white/90"
-                          >
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            <span className="sm:hidden">Reverter</span>
-                            <span className="hidden sm:inline">Reverter para Pendente</span>
-                          </Button>
-                        )}
+                          
+                          {inst.status !== 'pago' ? (
+                            <Button
+                              onClick={() => openPayMethod(inst)}
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700 text-white font-semibold flex-1 sm:flex-none"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Marcar Pago
+                            </Button>
+                          ) : (
+                            <Button
+                              onClick={() => markInstallmentPending(inst)}
+                              size="sm"
+                              variant="outline"
+                              className="border-white/20 text-white hover:bg-white/10 font-semibold flex-1 sm:flex-none"
+                            >
+                              <RotateCcw className="h-4 w-4 mr-2" />
+                              <span className="sm:hidden">Reverter</span>
+                              <span className="hidden sm:inline">Reverter Status</span>
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))
@@ -1023,7 +1037,9 @@ const FinanceManagement = () => {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-white/70">Carregando plano...</p>
+            <div className="p-12 text-center">
+              <p className="text-sm text-white/50 animate-pulse">Carregando plano...</p>
+            </div>
           )}
         </DialogContent>
       </Dialog>

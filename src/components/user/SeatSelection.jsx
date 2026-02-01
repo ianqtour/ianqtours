@@ -232,14 +232,14 @@ const SeatSelection = ({ bus, excursion, onSelect, onBack }) => {
                         {row.map((seat, seatIndex) => (
                           <React.Fragment key={`b46-un-${seat.number}`}>
                             <motion.button
-                              whileHover={{ scale: seat.status === 'occupied' ? 1 : 1.1 }}
-                              whileTap={{ scale: seat.status === 'occupied' ? 1 : 0.95 }}
-                              onClick={() => toggleSeat(seat.number)}
-                              className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex items-center justify-center font-bold text-white transition-all duration-200 ${getSeatColor(seat)} ${
-                                seat.status === 'occupied' ? 'cursor-help opacity-80' : 'cursor-pointer hover:shadow-lg'
-                              }`}
-                              title={seat.status === 'occupied' ? (seat.occupant?.name ? `Ocupado por ${seat.occupant.name}` : 'Ocupado') : 'Disponível'}
-                            >
+                              whileHover={{ scale: seat.status === 'occupied' ? 1.02 : 1.1 }}
+                            whileTap={{ scale: seat.status === 'occupied' ? 1 : 0.95 }}
+                            onClick={() => toggleSeat(seat.number)}
+                            className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex items-center justify-center font-bold text-white transition-all duration-200 ${getSeatColor(seat)} ${
+                              seat.status === 'occupied' ? 'cursor-help opacity-80' : 'cursor-pointer hover:shadow-lg'
+                            }`}
+                            title={seat.status === 'occupied' ? (seat.occupant?.name ? `Ocupado por ${seat.occupant.name}` : 'Ocupado') : 'Disponível'}
+                          >
                               {seat.number}
                             </motion.button>
                             {seatIndex === 1 && <div className="w-6 sm:w-8" />}
@@ -262,7 +262,7 @@ const SeatSelection = ({ bus, excursion, onSelect, onBack }) => {
                     {row.map((seat, seatIndex) => (
                       <React.Fragment key={seat.number}>
                         <motion.button
-                          whileHover={{ scale: seat.status === 'occupied' ? 1 : 1.1 }}
+                          whileHover={{ scale: seat.status === 'occupied' ? 1.02 : 1.1 }}
                           whileTap={{ scale: seat.status === 'occupied' ? 1 : 0.95 }}
                           onClick={() => toggleSeat(seat.number)}
                           className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex items-center justify-center font-bold text-white transition-all duration-200 ${getSeatColor(seat)} ${
@@ -291,12 +291,11 @@ const SeatSelection = ({ bus, excursion, onSelect, onBack }) => {
                     {row.map((seat, seatIndex) => (
                       <React.Fragment key={`un-${seat.number}`}>
                         <motion.button
-                          whileHover={{ scale: seat.status === 'occupied' ? 1 : 1.1 }}
+                          whileHover={{ scale: seat.status === 'occupied' ? 1.02 : 1.1 }}
                           whileTap={{ scale: seat.status === 'occupied' ? 1 : 0.95 }}
                           onClick={() => toggleSeat(seat.number)}
-                          disabled={seat.status === 'occupied'}
                           className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex items-center justify-center font-bold text-white transition-all duration-200 ${getSeatColor(seat)} ${
-                            seat.status === 'occupied' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:shadow-lg'
+                            seat.status === 'occupied' ? 'cursor-help opacity-80' : 'cursor-pointer hover:shadow-lg'
                           }`}
                         >
                           {seat.number}

@@ -38,17 +38,63 @@ const BusSelection = ({ excursion, onSelect, onBack }) => {
       let seatsByBus = {}
       
       if (ids.length > 0) {
+        // Buscar assentos
         const { data: seatsData } = await supabase
           .from('assentos_onibus')
           .select('onibus_id, numero_assento, status')
           .in('onibus_id', ids)
+
+        // Buscar reservas e passageiros para os ônibus
+        // Iniciando de 'reservas' para garantir consistência com outras partes do sistema
+        const { data: reservationsData } = await supabase
+          .from('reservas')
+          .select(`
+            id,
+            onibus_id,
+            passageiros_reserva (
+              numero_assento,
+              passageiros (
+                nome,
+                telefone,
+                data_nascimento
+              )
+            )
+          `)
+          .in('onibus_id', ids)
+          .neq('status', 'cancelada')
+
+        // Mapear ocupantes por ônibus e assento
+        const occupantsMap = {}
+        if (reservationsData) {
+          reservationsData.forEach(res => {
+            const busId = res.onibus_id
+            if (!occupantsMap[busId]) occupantsMap[busId] = {}
+            
+            const links = res.passageiros_reserva || []
+            links.forEach(link => {
+              const seatNum = String(link.numero_assento)
+              const paxData = Array.isArray(link.passageiros) ? link.passageiros[0] : link.passageiros
+              
+              if (paxData) {
+                occupantsMap[busId][seatNum] = {
+                  name: paxData.nome,
+                  phone: paxData.telefone,
+                  birthDate: paxData.data_nascimento
+                }
+              }
+            })
+          })
+        }
           
         seatsByBus = (seatsData || []).reduce((acc, s) => {
           const arr = acc[s.onibus_id] || []
+          // Normalizar o número do assento para string na busca
+          const occupant = occupantsMap[s.onibus_id]?.[String(s.numero_assento)] || null
+          
           arr.push({ 
             number: s.numero_assento, 
             status: s.status === 'ocupado' ? 'occupied' : 'available',
-            occupant: null // Removido vínculo com reservas/passageiros conforme solicitado
+            occupant: occupant
           })
           acc[s.onibus_id] = arr
           return acc
