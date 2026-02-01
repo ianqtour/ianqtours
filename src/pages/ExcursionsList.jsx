@@ -41,7 +41,7 @@ const ExcursionsList = () => {
     <div className="w-full overflow-x-hidden text-white">
       <Navbar />
       <section className="pt-24 pb-12 px-4">
-        <ExcursionSelection onSelect={handleSelect} />
+        <ExcursionSelection onSelect={handleSelect} isAdmin={isAdmin} />
       </section>
       <Footer />
     </div>

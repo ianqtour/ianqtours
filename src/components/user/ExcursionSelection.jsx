@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase'
 import Navbar from '@/components/landing/Navbar'
 
-const ExcursionSelection = ({ onSelect, onAdminBack }) => {
+const ExcursionSelection = ({ onSelect, onAdminBack, isAdmin = false }) => {
   const [excursions, setExcursions] = useState([]);
 
   useEffect(() => {
@@ -127,19 +127,26 @@ const ExcursionSelection = ({ onSelect, onAdminBack }) => {
                     {excursion.availableSeats != null && (
                       <div className="flex items-center text-white/80">
                         <Users className="h-4 w-4 mr-2 text-[#ECAE62]" />
-                        <span className="text-sm">{excursion.availableSeats} assentos disponíveis</span>
+                        <span className={`text-sm ${excursion.availableSeats === 0 ? 'text-red-500 font-bold' : ''}`}>
+                          {excursion.availableSeats === 0 ? 'Esgotado' : `${excursion.availableSeats} assentos disponíveis`}
+                        </span>
                       </div>
                     )}
                   </div>
 
                   <div className="flex items-center justify-between gap-4">
                     <span className="text-2xl font-bold text-[#ECAE62]">R${excursion.price}</span>
-                    <Button
-                      onClick={() => onSelect(excursion)}
-                      className="w-full sm:w-auto bg-[#ECAE62] hover:bg-[#FFD27A] text-[#0B1420]"
-                    >
-                      Selecionar Passeio
-                    </Button>
+                    {(excursion.availableSeats !== 0 || isAdmin) && (
+                      <Button
+                        onClick={() => onSelect(excursion)}
+                        className="w-full sm:w-auto bg-[#ECAE62] hover:bg-[#FFD27A] text-[#0B1420]"
+                      >
+                        Selecionar Passeio
+                      </Button>
+                    )}
+                    {excursion.availableSeats === 0 && !isAdmin && (
+                      <span className="text-red-500 font-bold uppercase tracking-wider">Esgotado</span>
+                    )}
                   </div>
                 </div>
               </motion.div>

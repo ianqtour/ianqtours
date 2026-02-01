@@ -13,7 +13,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-const UserFlow = ({ onAdminClick, initialExcursion }) => {
+const UserFlow = ({ onAdminClick, initialExcursion, isAdmin = false }) => {
   const navigate = useNavigate()
   const { toast } = useToast()
 
@@ -377,7 +377,7 @@ const UserFlow = ({ onAdminClick, initialExcursion }) => {
             exit={{ opacity: 0, x: -100 }}
             transition={{ duration: 0.3 }}
           >
-            <ExcursionSelection onSelect={handleExcursionSelect} onAdminBack={onAdminClick} />
+            <ExcursionSelection onSelect={handleExcursionSelect} onAdminBack={onAdminClick} isAdmin={isAdmin} />
           </motion.div>
         )}
 

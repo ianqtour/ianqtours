@@ -35,17 +35,26 @@ const BusSelection = ({ excursion, onSelect, onBack }) => {
       }))
 
       const ids = busList.map(b => b.id)
-      let seatsByBus = {}
-      
+
+      // Mapear assentos do banco por ônibus e número
+      const seatsMap = {}
       if (ids.length > 0) {
-        // Buscar assentos
         const { data: seatsData } = await supabase
           .from('assentos_onibus')
           .select('onibus_id, numero_assento, status')
           .in('onibus_id', ids)
 
-        // Buscar reservas e passageiros para os ônibus
-        // Iniciando de 'reservas' para garantir consistência com outras partes do sistema
+        if (seatsData) {
+          seatsData.forEach(s => {
+            if (!seatsMap[s.onibus_id]) seatsMap[s.onibus_id] = {}
+            seatsMap[s.onibus_id][String(s.numero_assento)] = s.status
+          })
+        }
+      }
+
+      // Buscar reservas e passageiros para os ônibus
+      let occupantsMap = {}
+      if (ids.length > 0) {
         const { data: reservationsData } = await supabase
           .from('reservas')
           .select(`
@@ -63,8 +72,6 @@ const BusSelection = ({ excursion, onSelect, onBack }) => {
           .in('onibus_id', ids)
           .neq('status', 'cancelada')
 
-        // Mapear ocupantes por ônibus e assento
-        const occupantsMap = {}
         if (reservationsData) {
           reservationsData.forEach(res => {
             const busId = res.onibus_id
@@ -85,35 +92,40 @@ const BusSelection = ({ excursion, onSelect, onBack }) => {
             })
           })
         }
-          
-        seatsByBus = (seatsData || []).reduce((acc, s) => {
-          const arr = acc[s.onibus_id] || []
-          // Normalizar o número do assento para string na busca
-          const occupant = occupantsMap[s.onibus_id]?.[String(s.numero_assento)] || null
-          
-          arr.push({ 
-            number: s.numero_assento, 
-            status: s.status === 'ocupado' ? 'occupied' : 'available',
-            occupant: occupant
-          })
-          acc[s.onibus_id] = arr
-          return acc
-        }, {})
       }
 
-      const enriched = busList.map(b => ({
-        ...b,
-        seats: (seatsByBus[b.id] || []).map(s => ({
-          ...s
-        }))
-      }))
+      const enriched = busList.map(b => {
+        const busSeats = []
+        for (let i = 1; i <= b.totalSeats; i++) {
+          const seatNum = String(i)
+          // Normalização do status do banco
+          const rawStatus = seatsMap[b.id]?.[seatNum]
+          const dbStatus = String(rawStatus || 'disponivel').toLowerCase().trim()
+          
+          const occupant = occupantsMap[b.id]?.[seatNum] || null
+          
+          busSeats.push({
+            number: i,
+            status: (dbStatus === 'ocupado' || dbStatus === 'ocupada') ? 'occupied' : 'available',
+            dbStatus: dbStatus,
+            occupant: occupant
+          })
+        }
+        return {
+          ...b,
+          seats: busSeats
+        }
+      })
       setBuses(enriched)
     }
     load()
   }, [excursion.id]);
 
   const getAvailableSeats = (bus) => {
-    return bus.seats.filter(seat => seat.status === 'available').length;
+    return bus.seats.filter(seat => {
+      const s = seat.dbStatus
+      return s === 'disponivel' || s === 'disponível' || s === 'available' || !s
+    }).length;
   };
 
   return (
@@ -176,7 +188,7 @@ const BusSelection = ({ excursion, onSelect, onBack }) => {
                       <Users className="h-4 w-4 mr-2 text-[#ECAE62]" />
                       Total de Assentos
                     </span>
-                    <span className="font-semibold">{bus.seats.length}</span>
+                    <span className="font-semibold">{bus.totalSeats}</span>
                   </div>
                   <div className="flex items-center justify-between text-white/80">
                     <span className="flex items-center">

@@ -131,7 +131,8 @@ import { getUserRole } from '@/lib/authRole'
             localStorage.removeItem('user_flow_state');
             setIsAdmin(true);
           }} 
-          initialExcursion={location.state?.selectedExcursion} 
+          initialExcursion={location.state?.selectedExcursion}
+          isAdmin={userRole === 'admin'}
         />
       ) : (
         <>

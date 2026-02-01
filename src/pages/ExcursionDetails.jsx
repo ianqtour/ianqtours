@@ -15,6 +15,22 @@ import { MapPin, CalendarDays, Clock, Users, ArrowRight, Tag, CreditCard, CheckC
     const [excursion, setExcursion] = useState(null)
     const [descExpanded, setDescExpanded] = useState(false)
     const [availableSeats, setAvailableSeats] = useState(null)
+    const [isAdmin, setIsAdmin] = useState(false)
+
+    useEffect(() => {
+      const checkAdmin = async () => {
+        const { data } = await supabase.auth.getSession()
+        if (data.session) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', data.session.user.id)
+            .single()
+          setIsAdmin(profile?.role === 'admin')
+        }
+      }
+      checkAdmin()
+    }, [])
 
     useEffect(() => {
       const load = async () => {
@@ -233,17 +249,32 @@ import { MapPin, CalendarDays, Clock, Users, ArrowRight, Tag, CreditCard, CheckC
 
                 <div className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <RouterLink to="/" className="text-white/80 hidden sm:inline">Voltar</RouterLink>
-                  <motion.div
-                    animate={{ scale: [1, 1.02, 1] }}
-                    transition={{ repeat: Infinity, duration: 2.4 }}
-                    whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full sm:w-auto"
-                  >
-                    <Button onClick={handleReserve} className="w-full sm:w-auto bg-gradient-to-r from-[#ECAE62] to-[#FFD27A] text-[#0B1420] font-semibold py-3 shadow-lg ring-2 ring-[#ECAE62]/40 hover:brightness-105">
-                      Reservar agora <ArrowRight className="ml-2 h-5 w-5" />
-                    </Button>
-                  </motion.div>
+                  {(() => {
+                    const isExpired = excursion.horario_partida ? new Date(excursion.horario_partida) < new Date() : false;
+                    const hasSeats = availableSeats === null || availableSeats > 0;
+                    
+                    if (isAdmin || (hasSeats && !isExpired)) {
+                      return (
+                        <motion.div
+                          animate={{ scale: [1, 1.02, 1] }}
+                          transition={{ repeat: Infinity, duration: 2.4 }}
+                          whileHover={{ scale: 1.04 }}
+                          whileTap={{ scale: 0.98 }}
+                          className="w-full sm:w-auto"
+                        >
+                          <Button onClick={handleReserve} className="w-full sm:w-auto bg-gradient-to-r from-[#ECAE62] to-[#FFD27A] text-[#0B1420] font-semibold py-3 shadow-lg ring-2 ring-[#ECAE62]/40 hover:brightness-105">
+                            Reservar agora <ArrowRight className="ml-2 h-5 w-5" />
+                          </Button>
+                        </motion.div>
+                      );
+                    }
+                    
+                    return (
+                      <div className="text-red-500 font-bold uppercase tracking-wider bg-red-500/10 px-4 py-2 rounded-lg border border-red-500/20">
+                        {isExpired ? 'Excursão Finalizada' : 'Vagas Esgotadas'}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </motion.div>

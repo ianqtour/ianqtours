@@ -238,7 +238,12 @@ const LandingPage = () => {
 
   const displayedTours = selectedDestination ? tours.filter(t => matchesLabel(t, selectedDestination)) : tours;
   const sortedTours = [...displayedTours].sort((a, b) => new Date(a.date) - new Date(b.date));
-  const nextTour = sortedTours[0];
+  
+  // Encontrar a próxima excursão com vagas disponíveis para destaque
+  // Se todas estiverem esgotadas, mantém a primeira como destaque (mas o botão será removido no JSX)
+  const nextTour = sortedTours.find(t => t.availableSeats === null || t.availableSeats > 0) || sortedTours[0];
+  const otherTours = nextTour ? sortedTours.filter(t => t.id !== nextTour.id) : sortedTours;
+  
   const uniqueDestinations = Array.from(new Set(tours.map(t => t.destination).filter(Boolean)));
 
   return (
@@ -455,25 +460,28 @@ const LandingPage = () => {
                 </div>
                 <div className="p-4 sm:p-8">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="text-white/80">Partiu viver essa experiência?</div>
-                    <motion.div
-                      animate={{ scale: [1, 1.02, 1] }}
-                      transition={{ repeat: Infinity, duration: 2.4 }}
-                      whileHover={{ scale: 1.04 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full sm:w-auto"
-                    >
-                      <Button onClick={() => navigate(`/excursoes/${nextTour.id}`)} className="w-full sm:w-auto bg-gradient-to-r from-[#ECAE62] to-[#FFD27A] text-[#0B1420] font-semibold py-3 shadow-lg ring-2 ring-[#ECAE62]/40 hover:brightness-105">Quero ir</Button>
-                    </motion.div>
+                    <div className="text-white/80">
+                      {nextTour.availableSeats === 0 ? 'Vagas esgotadas' : 'Partiu viver essa experiência?'}
+                    </div>
+                    {(nextTour.availableSeats === null || nextTour.availableSeats > 0) && (
+                      <motion.div
+                        animate={{ scale: [1, 1.02, 1] }}
+                        transition={{ repeat: Infinity, duration: 2.4 }}
+                        whileHover={{ scale: 1.04 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="w-full sm:w-auto"
+                      >
+                        <Button onClick={() => navigate(`/excursoes/${nextTour.id}`)} className="w-full sm:w-auto bg-gradient-to-r from-[#ECAE62] to-[#FFD27A] text-[#0B1420] font-semibold py-3 shadow-lg ring-2 ring-[#ECAE62]/40 hover:brightness-105">Quero ir</Button>
+                      </motion.div>
+                    )}
                   </div>
-                  
                 </div>
               </div>
             </motion.div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            {sortedTours.slice(1).map((tour, index) => (
+            {otherTours.map((tour, index) => (
               <motion.div
                 key={tour.id || index}
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -492,18 +500,21 @@ const LandingPage = () => {
                   <p className="text-white/70 mb-3 flex items-center"><MapPin className="h-4 w-4 mr-2 text-[#ECAE62]" /> {tour.destination}</p>
                   <p className="text-white/70 mb-4 flex items-center"><CalendarDays className="h-4 w-4 mr-2 text-[#ECAE62]"/> {formatDate(tour.date)}</p>
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                    <div className="text-white/80">Vamos nessa?</div>
-                    <motion.div
-                      animate={{ scale: [1, 1.02, 1] }}
-                      transition={{ repeat: Infinity, duration: 2.4 }}
-                      whileHover={{ scale: 1.04 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full sm:w-auto"
-                    >
-                      <Button onClick={() => navigate(`/excursoes/${tour.id}`)} className="w-full sm:w-auto bg-gradient-to-r from-[#ECAE62] to-[#FFD27A] text-[#0B1420] font-semibold py-3 shadow-lg ring-2 ring-[#ECAE62]/40 hover:brightness-105">Quero ir</Button>
-                    </motion.div>
+                    <div className="text-white/80">
+                      {tour.availableSeats === 0 ? 'Vagas esgotadas' : 'Vamos nessa?'}
+                    </div>
+                    {(tour.availableSeats === null || tour.availableSeats > 0) && (
+                      <motion.div
+                        animate={{ scale: [1, 1.02, 1] }}
+                        transition={{ repeat: Infinity, duration: 2.4 }}
+                        whileHover={{ scale: 1.04 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="w-full sm:w-auto"
+                      >
+                        <Button onClick={() => navigate(`/excursoes/${tour.id}`)} className="w-full sm:w-auto bg-gradient-to-r from-[#ECAE62] to-[#FFD27A] text-[#0B1420] font-semibold py-3 shadow-lg ring-2 ring-[#ECAE62]/40 hover:brightness-105">Quero ir</Button>
+                      </motion.div>
+                    )}
                   </div>
-                  
                 </div>
               </motion.div>
             ))}
