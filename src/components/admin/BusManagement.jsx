@@ -78,13 +78,33 @@ const BusManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const totalSeatsNum = parseInt(formData.totalSeats);
+
     if (editingId) {
+      // Buscar o ônibus atual para comparar o total de assentos
+      const currentBus = buses.find(b => b.id === editingId);
+      const oldTotalSeats = currentBus ? currentBus.totalSeats : 0;
+
       await supabase.from('onibus').update({
         nome: formData.name,
         identificacao: formData.identification,
         excursao_id: formData.excursionId,
-        total_assentos: parseInt(formData.totalSeats),
+        total_assentos: totalSeatsNum,
       }).eq('id', editingId)
+
+      // Se o número de assentos aumentou, criar os novos assentos
+      if (totalSeatsNum > oldTotalSeats) {
+        const newSeats = [];
+        for (let i = oldTotalSeats + 1; i <= totalSeatsNum; i++) {
+          newSeats.push({
+            onibus_id: editingId,
+            numero_assento: i,
+            status: 'disponivel'
+          });
+        }
+        await supabase.from('assentos_onibus').insert(newSeats);
+      }
+
       await loadBuses()
       toast({
         title: "Ônibus Atualizado",
@@ -92,12 +112,26 @@ const BusManagement = () => {
       });
       setEditingId(null);
     } else {
-      await supabase.from('onibus').insert({
+      const { data: newBus, error } = await supabase.from('onibus').insert({
         nome: formData.name,
         identificacao: formData.identification,
         excursao_id: formData.excursionId,
-        total_assentos: parseInt(formData.totalSeats),
-      })
+        total_assentos: totalSeatsNum,
+      }).select().single()
+
+      if (!error && newBus) {
+        // Criar todos os assentos para o novo ônibus
+        const allSeats = [];
+        for (let i = 1; i <= totalSeatsNum; i++) {
+          allSeats.push({
+            onibus_id: newBus.id,
+            numero_assento: i,
+            status: 'disponivel'
+          });
+        }
+        await supabase.from('assentos_onibus').insert(allSeats);
+      }
+
       await loadBuses()
       toast({
         title: "Ônibus Criado",
