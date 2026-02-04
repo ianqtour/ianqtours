@@ -357,6 +357,7 @@ const BusManagement = () => {
                     ) : (
                       <>
                         <SelectItem value="46">46</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
                         <SelectItem value="60">60</SelectItem>
                       </>
                     )}

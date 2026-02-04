@@ -99,6 +99,23 @@ const SeatSelection = ({ bus, excursion, onSelect, onBack }) => {
   ])
   const bus46Unmatched = bus.seats.filter(s => !bus46Set.has(s.number))
 
+  const isBus50 = ((bus.seats || []).length === 50) || t.includes('50')
+  const bus50Left = [[1,2],[5,6],[9,10],[13,14],[17,18],[21,22],[25,26],[29,30],[33,34],[37,38],[41,42],[45,46],[49,50]]
+  const bus50Right = [[4,3],[8,7],[12,11],[16,15],[20,19],[24,23],[28,27],[32,31],[36,35],[40,39],[44,43],[48,47]]
+  const bus50Max = Math.max(bus50Left.length, bus50Right.length)
+  const bus50Rows = Array.from({ length: bus50Max }).map((_, i) => ([
+    bus50Left[i] ? bus50Left[i][0] : null,
+    bus50Left[i] ? bus50Left[i][1] : null,
+    'gap',
+    bus50Right[i] ? bus50Right[i][0] : null,
+    bus50Right[i] ? bus50Right[i][1] : null
+  ]))
+  const bus50Set = new Set([
+    ...bus50Left.flat(),
+    ...bus50Right.flat()
+  ])
+  const bus50Unmatched = bus.seats.filter(s => !bus50Set.has(s.number))
+
   return (
     <div className="min-h-screen p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
@@ -190,6 +207,66 @@ const SeatSelection = ({ bus, excursion, onSelect, onBack }) => {
                   ))}
                 </div>
               ))
+            ) : isBus50 ? (
+              <>
+                {bus50Rows.map((nums, idx) => (
+                  <div key={`b50-${idx}`} className="flex justify-center gap-3 sm:gap-4">
+                    {nums.map((num, i) => (
+                    num === 'gap' ? (
+                      <div key={`gap50-${idx}-${i}`} className="w-10 sm:w-16" />
+                    ) : (
+                      (() => {
+                        const seat = seatByNumber(num)
+                        if (!seat) return <div key={`empty50-${idx}-${i}-${num ?? 'none'}`} className="w-12 h-12 sm:w-16 sm:h-16" />
+                        return (
+                          <motion.button
+                            key={seat.number}
+                            whileHover={{ scale: seat.status === 'occupied' ? 1.02 : 1.1 }}
+                            whileTap={{ scale: seat.status === 'occupied' ? 1 : 0.95 }}
+                              onClick={() => toggleSeat(seat.number)}
+                              className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex items-center justify-center font-bold text-white transition-all duration-200 ${getSeatColor(seat)} ${
+                                seat.status === 'occupied' ? 'cursor-help opacity-80' : 'cursor-pointer hover:shadow-lg'
+                              }`}
+                              title={seat.status === 'occupied' ? (seat.occupant?.name ? `Ocupado por ${seat.occupant.name}` : 'Ocupado') : 'Disponível'}
+                            >
+                              {seat.number}
+                            </motion.button>
+                          )
+                        })()
+                      )
+                    ))}
+                  </div>
+                ))}
+                {bus50Unmatched.length > 0 && (
+                  (() => {
+                    const seatsPerRow = 4
+                    const rows = []
+                    for (let i = 0; i < bus50Unmatched.length; i += seatsPerRow) {
+                      rows.push(bus50Unmatched.slice(i, i + seatsPerRow))
+                    }
+                    return rows.map((row, rowIndex) => (
+                      <div key={`b50-unmatched-${rowIndex}`} className="flex justify-center gap-3 sm:gap-4">
+                        {row.map((seat, seatIndex) => (
+                          <React.Fragment key={`b50-un-${seat.number}`}>
+                            <motion.button
+                              whileHover={{ scale: seat.status === 'occupied' ? 1.02 : 1.1 }}
+                            whileTap={{ scale: seat.status === 'occupied' ? 1 : 0.95 }}
+                            onClick={() => toggleSeat(seat.number)}
+                            className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex items-center justify-center font-bold text-white transition-all duration-200 ${getSeatColor(seat)} ${
+                              seat.status === 'occupied' ? 'cursor-help opacity-80' : 'cursor-pointer hover:shadow-lg'
+                            }`}
+                            title={seat.status === 'occupied' ? (seat.occupant?.name ? `Ocupado por ${seat.occupant.name}` : 'Ocupado') : 'Disponível'}
+                          >
+                              {seat.number}
+                            </motion.button>
+                            {seatIndex === 1 && <div className="w-6 sm:w-8" />}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    ))
+                  })()
+                )}
+              </>
             ) : isBus46 ? (
               <>
                 {bus46Rows.map((nums, idx) => (
