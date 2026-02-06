@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar, MapPin, Bus, Users, Trash2, Eye, Armchair, X, CheckCircle, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, MapPin, Bus, Users, Trash2, Eye, Armchair, X, CheckCircle, Pencil, ChevronLeft, ChevronRight, Send, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Dialog,
@@ -40,6 +40,11 @@ const ReservationManagement = ({ allowCancel = true }) => {
   const [savingEdit, setSavingEdit] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+  const [confirmNotificationOpen, setConfirmNotificationOpen] = useState(false);
+  const [notificationPayload, setNotificationPayload] = useState(null);
+  const [sendingNotification, setSendingNotification] = useState(false);
+  const [processingModalOpen, setProcessingModalOpen] = useState(false);
+  const [countdown, setCountdown] = useState(10);
 
   const normalizeText = (s) => (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const formatDate = (dateStr) => {
@@ -97,9 +102,9 @@ const ReservationManagement = ({ allowCancel = true }) => {
   }, [selectedExcursionId, selectedBusId]);
 
   const loadExcursionsAndBuses = async () => {
-    const { data: exData } = await supabase.from('excursoes').select('id, nome')
+    const { data: exData } = await supabase.from('excursoes').select('id, nome, destino')
     const { data: busData } = await supabase.from('onibus').select('id, nome, identificacao, excursao_id')
-    setExcursions((exData || []).map(e => ({ id: e.id, name: e.nome })))
+    setExcursions((exData || []).map(e => ({ id: e.id, name: e.nome, destination: e.destino })))
     setBuses((busData || []).map(b => ({ id: b.id, name: b.nome, identification: b.identificacao || '', excursionId: b.excursao_id })))
   };
 
@@ -128,7 +133,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
     if (reservationIds.length > 0) {
       const { data: paxResData } = await supabase
         .from('passageiros_reserva')
-        .select('id, reserva_id, numero_assento, passageiro_id, presente')
+        .select('id, reserva_id, numero_assento, passageiro_id, presente, notificado_sucesso')
         .in('reserva_id', reservationIds)
       paxRes = paxResData || []
     }
@@ -169,6 +174,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
           if (val === false || val === 'false' || val === 0) return false
           return null
         })(),
+        notificadoSucesso: p.notificado_sucesso === true || p.notificado_sucesso === 'true',
       })
       acc[p.reserva_id] = arr
       return acc
@@ -203,9 +209,19 @@ const ReservationManagement = ({ allowCancel = true }) => {
     setBookings(sortedBySeat)
   };
 
+  const formatDateOnly = (s) => {
+    if (!s) return ''
+    return new Date(s).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+  }
+
   const getExcursionName = (excursionId) => {
     const excursion = excursions.find(e => e.id === excursionId);
     return excursion ? excursion.name : 'Desconhecida';
+  };
+
+  const getExcursionDestination = (excursionId) => {
+    const excursion = excursions.find(e => e.id === excursionId);
+    return excursion ? excursion.destination : 'Desconhecido';
   };
 
   const getBusName = (busId) => {
@@ -431,6 +447,64 @@ const ReservationManagement = ({ allowCancel = true }) => {
     })
   };
 
+  const handleResendNotification = (booking, passenger) => {
+    const payload = {
+      reserva_id: booking.id,
+      passageiro_id: passenger.passageiroId,
+      nome: passenger.name,
+      destino: getExcursionDestination(booking.excursionId),
+      excursao: getExcursionName(booking.excursionId),
+      data: formatDateOnly(booking.date),
+      onibus: getBusIdentification(booking.busId),
+      assento: Number(passenger.seatNumber),
+      telefone: passenger.phone,
+    };
+    setNotificationPayload(payload);
+    setConfirmNotificationOpen(true);
+  };
+
+  const confirmResendNotification = async () => {
+    if (!notificationPayload) return;
+    setSendingNotification(true);
+    try {
+      const webhookUrl = 'https://n8n-n8n.j6kpgx.easypanel.host/webhook/confirmacao-reserva';
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(notificationPayload),
+      });
+
+      if (!response.ok) throw new Error('Falha ao chamar o webhook');
+
+      setConfirmNotificationOpen(false);
+      setProcessingModalOpen(true);
+      setCountdown(10);
+
+      const timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            setProcessingModalOpen(false);
+            loadBookings();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+    } catch (err) {
+      toast({
+        title: "Erro ao reenviar",
+        description: "Tente novamente em instantes.",
+        variant: "destructive"
+      });
+      setConfirmNotificationOpen(false);
+    } finally {
+      setSendingNotification(false);
+      setNotificationPayload(null);
+    }
+  };
+
   const handleOpenPresenceModal = (passengerId, currentStatus) => {
     setPresencePassengerId(passengerId)
     setPresenceStatus(currentStatus)
@@ -606,6 +680,16 @@ const ReservationManagement = ({ allowCancel = true }) => {
                 </div>
                 <div className="flex justify-center items-center gap-2 sm:gap-3 pt-2 border-t border-white/10">
                   <Button
+                    onClick={() => handleResendNotification(booking, booking.passengers[0])}
+                    disabled={booking.passengers[0]?.notificadoSucesso}
+                    size="sm"
+                    className={`${booking.passengers[0]?.notificadoSucesso ? 'bg-gray-500/50 cursor-not-allowed' : 'bg-[#ECAE62] hover:bg-[#8C641C]'} text-[#0B1420] text-sm px-4 py-2`}
+                    title={booking.passengers[0]?.notificadoSucesso ? "Notificação já enviada com sucesso" : "Reenviar notificação de reserva"}
+                  >
+                    <Send className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Reenviar</span>
+                  </Button>
+                  <Button
                     onClick={() => setSelectedBooking(booking)}
                     size="sm"
                     className={`${booking.passengers[0]?.presente === true ? 'bg-[#ECAE62] hover:bg-[#8C641C] text-[#0B1420]' : 'bg-green-500 hover:bg-green-600 text-white'} text-sm sm:text-sm px-4 sm:px-6 py-2 sm:py-2`}
@@ -622,18 +706,20 @@ const ReservationManagement = ({ allowCancel = true }) => {
                     onClick={() => openEditModal(booking, booking.passengers[0])}
                     size="sm"
                     className="bg-blue-500 hover:bg-blue-600 text-white text-sm sm:text-sm px-4 sm:px-6 py-2 sm:py-2"
+                    title="Editar reserva"
                   >
                     <Pencil className="h-4 w-4 sm:h-4 sm:w-4 sm:mr-2" />
-                    <span>Editar</span>
+                    <span className="hidden sm:inline">Editar</span>
                   </Button>
                   {allowCancel && (
                     <Button
                       onClick={() => requestDeleteBooking(booking.id)}
                       size="sm"
                       className="bg-white text-red-600 border border-red-600 hover:bg-red-50 text-sm sm:text-sm px-4 sm:px-6 py-2 sm:py-2"
+                      title="Cancelar reserva"
                     >
                       <Trash2 className="h-4 w-4 sm:h-4 sm:w-4 sm:mr-2" />
-                      <span>Cancelar</span>
+                      <span className="hidden sm:inline">Cancelar</span>
                     </Button>
                   )}
                 </div>
@@ -766,6 +852,16 @@ const ReservationManagement = ({ allowCancel = true }) => {
                           </div>
                           <div className="flex gap-2">
                             <Button
+                              onClick={() => handleResendNotification(selectedBooking, passenger)}
+                              disabled={passenger.notificadoSucesso}
+                              variant="outline"
+                              size="sm"
+                              className={`${passenger.notificadoSucesso ? 'border-gray-500/30 text-gray-500 cursor-not-allowed' : 'border-[#ECAE62]/50 text-[#ECAE62] hover:bg-[#ECAE62]/10'} flex-shrink-0`}
+                              title={passenger.notificadoSucesso ? "Notificação já enviada com sucesso" : "Reenviar notificação"}
+                            >
+                              <Send className="h-4 w-4" />
+                            </Button>
+                            <Button
                               onClick={() => handleOpenPresenceModal(passenger.id, passenger.presente)}
                               variant="outline"
                               size="sm"
@@ -789,7 +885,15 @@ const ReservationManagement = ({ allowCancel = true }) => {
                 )}
 
               {/* Botão de Confirmar Presença do Passageiro Principal */}
-              <div className="flex justify-center pt-4 border-t border-white/10">
+              <div className="flex justify-center gap-3 pt-4 border-t border-white/10">
+                <Button
+                  onClick={() => handleResendNotification(selectedBooking, selectedBooking.passengers[0])}
+                  disabled={selectedBooking.passengers[0]?.notificadoSucesso}
+                  className={`${selectedBooking.passengers[0]?.notificadoSucesso ? 'bg-gray-500/50 cursor-not-allowed' : 'bg-[#ECAE62] hover:bg-[#8C641C]'} text-[#0B1420] px-6`}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Reenviar Notificação
+                </Button>
                 <Button
                   onClick={() => handleOpenPresenceModal(selectedBooking.passengers[0]?.id, selectedBooking.passengers[0]?.presente)}
                   className="bg-green-500 hover:bg-green-600 text-white px-6"
@@ -906,6 +1010,50 @@ const ReservationManagement = ({ allowCancel = true }) => {
               Salvar
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação de Reenvio de Notificação */}
+      <Dialog open={confirmNotificationOpen} onOpenChange={setConfirmNotificationOpen}>
+        <DialogContent className="bg-[#0F172A] text-white">
+          <DialogHeader>
+            <DialogTitle className="text-base sm:text-lg">Reenviar Confirmação</DialogTitle>
+            <DialogDescription className="text-white/80 text-sm">
+              Deseja reenviar a mensagem de confirmação para <strong>{notificationPayload?.nome}</strong>?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 py-2">
+            <p className="text-xs text-white/60 bg-white/5 p-3 rounded-lg border border-white/10">
+              Isso chamará o webhook do n8n novamente com os dados da reserva e do passageiro.
+            </p>
+          </div>
+          <DialogFooter className="flex-row gap-2 sm:gap-2 mt-2">
+            <Button onClick={() => setConfirmNotificationOpen(false)} className="flex-1 bg-white text-[#0F172A] hover:bg-gray-100">
+              Cancelar
+            </Button>
+            <Button 
+              onClick={confirmResendNotification} 
+              disabled={sendingNotification}
+              className="flex-1 bg-[#ECAE62] hover:bg-[#8C641C] text-[#0B1420] font-semibold"
+            >
+              {sendingNotification ? 'Enviando...' : 'Sim, Reenviar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Modal de Processamento */}
+      <Dialog open={processingModalOpen} onOpenChange={() => {}}>
+        <DialogContent className="bg-[#0F172A] border-white/20 text-white max-w-sm flex flex-col items-center justify-center py-10 [&>button:last-child]:hidden">
+          <div className="relative mb-6">
+            <Loader2 className="h-16 w-16 text-[#ECAE62] animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center font-bold text-lg">
+              {countdown}
+            </div>
+          </div>
+          <h3 className="text-xl font-bold mb-2">Processando...</h3>
+          <p className="text-white/70 text-center px-4">
+            Aguardando a confirmação do servidor. Por favor, não feche esta página.
+          </p>
         </DialogContent>
       </Dialog>
     </div>
