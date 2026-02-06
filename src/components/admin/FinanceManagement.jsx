@@ -53,6 +53,16 @@ const FinanceManagement = () => {
     return date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
   }
 
+  const getStatusFromDate = (dateStr, currentStatus) => {
+    if (currentStatus === 'pago') return 'pago'
+    if (!dateStr) return 'pendente'
+    // Usa o fuso de São Paulo para consistência com o cron job do banco
+    const today = new Date(new Date().toLocaleDateString('en-US', { timeZone: 'America/Sao_Paulo' }))
+    const [y, m, d] = dateStr.split('-').map(Number)
+    const dueDate = new Date(y, m - 1, d)
+    return dueDate < today ? 'atrasado' : 'pendente'
+  }
+
   useEffect(() => {
     loadExcursions()
   }, [])
@@ -379,12 +389,13 @@ const FinanceManagement = () => {
 
   const markInstallmentPending = async (inst) => {
     try {
+      const newStatus = getStatusFromDate(inst.vencimento)
       const { error } = await supabase
         .from('finance_installments')
-        .update({ status: 'pendente', pago_em: null })
+        .update({ status: newStatus, pago_em: null })
         .eq('id', inst.id)
       if (error) throw error
-      const updated = currentInstallments.map(i => i.id === inst.id ? { ...i, status: 'pendente', pago_em: null } : i)
+      const updated = currentInstallments.map(i => i.id === inst.id ? { ...i, status: newStatus, pago_em: null } : i)
       setCurrentInstallments(updated)
       const total = updated.reduce((acc, i) => acc + Number(i.valor || 0), 0)
       const paid = updated.filter(i => String(i.status) === 'pago').reduce((acc, i) => acc + Number(i.valor || 0), 0)
@@ -433,14 +444,16 @@ const FinanceManagement = () => {
     setIsSavingEdit(true)
     try {
       const val = Number(editValue)
+      const newStatus = getStatusFromDate(editDate, editingInstallment.status)
+      
       const { error } = await supabase
         .from('finance_installments')
-        .update({ vencimento: editDate, valor: val })
+        .update({ vencimento: editDate, valor: val, status: newStatus })
         .eq('id', editingInstallment.id)
 
       if (error) throw error
 
-      const updated = currentInstallments.map(i => i.id === editingInstallment.id ? { ...i, vencimento: editDate, valor: val } : i)
+      const updated = currentInstallments.map(i => i.id === editingInstallment.id ? { ...i, vencimento: editDate, valor: val, status: newStatus } : i)
       setCurrentInstallments(updated)
 
       // Update booking stats
@@ -498,6 +511,7 @@ const FinanceManagement = () => {
         throw new Error('Data inválida. Use o formato DD/MM/AAAA')
       }
       const isoDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`
+      const status = getStatusFromDate(isoDate)
 
       // Determinar o próximo número
       const maxNumero = currentInstallments.reduce((max, i) => Math.max(max, i.numero), 0)
@@ -511,7 +525,7 @@ const FinanceManagement = () => {
           numero: nextNumero,
           vencimento: isoDate,
           valor: val,
-          status: 'pendente'
+          status: status
         })
         .select()
         .single()
@@ -663,7 +677,7 @@ const FinanceManagement = () => {
           numero: 0,
           vencimento: todayStr,
           valor: entradaNum,
-          status: 'pendente',
+          status: getStatusFromDate(todayStr),
         })
       }
       for (let i = 1; i <= parcelasTot; i++) {
@@ -673,7 +687,7 @@ const FinanceManagement = () => {
           numero: i,
           vencimento: due,
           valor: parcelaNum,
-          status: 'pendente',
+          status: getStatusFromDate(due),
         })
       }
       await tryInsertInstallments(rows)

@@ -230,7 +230,10 @@ const UserFlow = ({ onAdminClick, initialExcursion, isAdmin = false }) => {
     const payloads = []
     if ((passengers || []).length > 0) {
       for (const p of passengers) {
+        const link = (pendingLinks || []).find(l => Number(l.seatNumber) === Number(p.seatNumber))
         payloads.push({
+          reserva_id: bookingIdCreated,
+          passageiro_id: link?.passageiro_id,
           nome: p.name,
           destino: selectedExcursion?.destination,
           excursao: selectedExcursion?.name,
@@ -241,8 +244,11 @@ const UserFlow = ({ onAdminClick, initialExcursion, isAdmin = false }) => {
         })
       }
     } else if (confirmedPassenger) {
-      const seat = Number((pendingLinks || [])[0]?.seatNumber)
+      const link = (pendingLinks || [])[0]
+      const seat = Number(link?.seatNumber)
       payloads.push({
+        reserva_id: bookingIdCreated,
+        passageiro_id: confirmedPassenger?.id,
         nome: confirmedPassenger?.nome,
         destino: selectedExcursion?.destination,
         excursao: selectedExcursion?.name,
