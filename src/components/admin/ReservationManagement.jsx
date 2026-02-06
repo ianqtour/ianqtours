@@ -23,6 +23,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
   const [selectedBusId, setSelectedBusId] = useState(null);
   const [searchText, setSearchText] = useState('');
   const [presenceFilter, setPresenceFilter] = useState('all'); // 'all', 'present', 'absent'
+  const [notificationFilter, setNotificationFilter] = useState('all'); // 'all', 'notified', 'not_notified'
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -541,7 +542,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchText, presenceFilter, selectedExcursionId, selectedBusId]);
+  }, [searchText, presenceFilter, notificationFilter, selectedExcursionId, selectedBusId]);
 
   const getFilteredBookings = () => {
     let filtered = bookings;
@@ -559,6 +560,12 @@ const ReservationManagement = ({ allowCancel = true }) => {
       filtered = filtered.filter(b => b.passengers.length > 0 && b.passengers.some(p => p.presente === true || p.presente === 'true'))
     } else if (presenceFilter === 'absent') {
       filtered = filtered.filter(b => b.passengers.length > 0 && b.passengers.some(p => p.presente === false || p.presente === 'false'))
+    }
+
+    if (notificationFilter === 'notified') {
+      filtered = filtered.filter(b => b.passengers.length > 0 && b.passengers.some(p => p.notificadoSucesso === true))
+    } else if (notificationFilter === 'not_notified') {
+      filtered = filtered.filter(b => b.passengers.length > 0 && b.passengers.some(p => p.notificadoSucesso === false))
     }
     
     return filtered;
@@ -583,7 +590,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
       </div>
 
       <div className="bg-white/5 rounded-xl p-3 md:p-4 border border-white/10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
           <div>
             <Select value={selectedExcursionId || ''} onValueChange={(v) => { setSelectedExcursionId(v); setSelectedBusId(null); }}>
               <SelectTrigger className="bg-white/10 border-white/20 text-white">
@@ -614,9 +621,21 @@ const ReservationManagement = ({ allowCancel = true }) => {
                 <SelectValue placeholder="Filtrar por presença" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="all">Todos (Presença)</SelectItem>
                 <SelectItem value="present">Presentes</SelectItem>
                 <SelectItem value="absent">Ausentes</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Select value={notificationFilter} onValueChange={setNotificationFilter}>
+              <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                <SelectValue placeholder="Filtrar por notificação" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos (Notificação)</SelectItem>
+                <SelectItem value="notified">Notificados</SelectItem>
+                <SelectItem value="not_notified">Não notificados</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -770,14 +770,15 @@ const FinanceManagement = () => {
       <div className="bg-white/5 rounded-xl p-3 md:p-4 border border-white/10">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3 md:gap-4">
           <div>
-            <Select value={selectedExcursionId || ''} onValueChange={(v) => {
-              setSelectedExcursionId(v)
+            <Select value={selectedExcursionId || 'all'} onValueChange={(v) => {
+              setSelectedExcursionId(v === 'all' ? null : v)
               setSelectedBusId(null)
             }}>
               <SelectTrigger className="bg-white/10 border-white/20 text-white">
                 <SelectValue placeholder="Filtrar por excursão" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">Todas as excursões</SelectItem>
                 {excursions.map(e => (
                   <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>
                 ))}
