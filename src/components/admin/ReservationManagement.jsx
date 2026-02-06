@@ -103,10 +103,23 @@ const ReservationManagement = ({ allowCancel = true }) => {
   }, [selectedExcursionId, selectedBusId]);
 
   const loadExcursionsAndBuses = async () => {
-    const { data: exData } = await supabase.from('excursoes').select('id, nome, destino')
+    const { data: exData } = await supabase.from('excursoes').select('id, nome, destino, horario_partida')
     const { data: busData } = await supabase.from('onibus').select('id, nome, identificacao, excursao_id')
-    setExcursions((exData || []).map(e => ({ id: e.id, name: e.nome, destination: e.destino })))
+    setExcursions((exData || []).map(e => ({ id: e.id, name: e.nome, destination: e.destino, date: e.horario_partida })))
     setBuses((busData || []).map(b => ({ id: b.id, name: b.nome, identification: b.identificacao || '', excursionId: b.excursao_id })))
+  };
+
+  const isBirthdayMonth = (birthDate, excursionDate) => {
+    if (!birthDate || !excursionDate) return false;
+    try {
+      // birthDate format: YYYY-MM-DD or similar
+      // excursionDate format: YYYY-MM-DD or similar
+      const bDate = new Date(birthDate);
+      const eDate = new Date(excursionDate);
+      return bDate.getUTCMonth() === eDate.getUTCMonth();
+    } catch (e) {
+      return false;
+    }
   };
 
   const loadBookings = async () => {
@@ -192,7 +205,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
         date: r.criado_em,
         status: r.status === 'confirmada' ? 'confirmed' : r.status === 'cancelada' ? 'canceled' : 'canceled',
       }
-    })
+    }).filter(b => b.passengers.length > 0)
 
     const sortedBySeat = bookingsList.sort((a, b) => {
       const aMin = a.seats.length ? Math.min(...a.seats.map(Number)) : Infinity
@@ -686,7 +699,10 @@ const ReservationManagement = ({ allowCancel = true }) => {
                     </div>
                   <div className="flex items-center text-white/70 text-xs sm:text-sm">
                     <Users className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 text-[#ECAE62] flex-shrink-0" />
-                    <span className="truncate">{booking.passengers[0]?.name || 'Sem nome'}</span>
+                    <span className="truncate">
+                      {booking.passengers[0]?.name || 'Sem nome'}
+                      {isBirthdayMonth(booking.passengers[0]?.birthDate, excursions.find(e => e.id === booking.excursionId)?.date) && ' 🎂'}
+                    </span>
                     </div>
                   <div className="flex items-center text-white/70 text-xs sm:text-sm">
                     <Armchair className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 text-[#ECAE62] flex-shrink-0" />
@@ -789,6 +805,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
                 <div>
                   <h3 className="text-xl sm:text-2xl font-bold text-white mb-1">
                     {selectedBooking.passengers[0].name}
+                    {isBirthdayMonth(selectedBooking.passengers[0]?.birthDate, excursions.find(e => e.id === selectedBooking.excursionId)?.date) && ' 🎂'}
                   </h3>
                   {selectedBooking.passengers[0].phone && (
                     <div className="flex items-center justify-center gap-2 text-white/70 text-sm sm:text-base">
@@ -856,7 +873,10 @@ const ReservationManagement = ({ allowCancel = true }) => {
                       <div key={index + 1} className="bg-white/5 rounded-lg p-3 md:p-4 border border-white/10 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-sm sm:text-base text-white truncate">{passenger.name}</p>
+                            <p className="font-semibold text-sm sm:text-base text-white truncate">
+                              {passenger.name}
+                              {isBirthdayMonth(passenger.birthDate, excursions.find(e => e.id === selectedBooking.excursionId)?.date) && ' 🎂'}
+                            </p>
                             {passenger.phone && <p className="text-xs sm:text-sm text-white/70">{passenger.phone}</p>}
                             {passenger.birthDate && (
                               <p className="text-xs sm:text-sm text-white/60">Nascimento: {formatBirthDate(passenger.birthDate)}</p>
