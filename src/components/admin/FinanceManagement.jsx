@@ -369,6 +369,7 @@ const FinanceManagement = () => {
           parcela_numero: inst.numero,
           parcela_valor: Number(inst.valor || 0),
           parcela_vencimento: inst.vencimento,
+          total_parcelas: updated.length,
           parcelas_pendentes: pendentes,
         }
         try {
