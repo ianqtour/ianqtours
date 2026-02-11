@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Calendar, MapPin, Users, Armchair, BadgeDollarSign, CheckCircle, AlertTriangle, RotateCcw, Pencil, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { Calendar, MapPin, Users, Armchair, BadgeDollarSign, CheckCircle, AlertTriangle, RotateCcw, Pencil, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -433,6 +433,7 @@ const FinanceManagement = () => {
   const [newInstValue, setNewInstValue] = useState('')
   const [newInstDate, setNewInstDate] = useState('')
   const [isSavingNewInst, setIsSavingNewInst] = useState(false)
+  const [deletingInstallment, setDeletingInstallment] = useState(null)
 
   const handleOpenEdit = (inst) => {
     setEditingInstallment(inst)
@@ -585,6 +586,69 @@ const FinanceManagement = () => {
       toast({ title: 'Erro', description: err.message || 'Falha ao adicionar parcela.', variant: 'destructive' })
     } finally {
       setIsSavingNewInst(false)
+    }
+  }
+
+  const handleDeleteInstallment = async () => {
+    if (!deletingInstallment || !currentPlan) return
+    
+    try {
+      // 1. Deletar a parcela
+      const { error: deleteError } = await supabase
+        .from('finance_installments')
+        .delete()
+        .eq('id', deletingInstallment.id)
+
+      if (deleteError) throw deleteError
+
+      // 2. Calcular novos valores
+      const updatedInsts = currentInstallments.filter(i => i.id !== deletingInstallment.id)
+      const newTotalCount = updatedInsts.filter(i => i.numero > 0).length
+      
+      // 3. Atualizar o plano
+      const { error: planUpdateError } = await supabase
+        .from('finance_payment_plans')
+        .update({
+          parcelas_total: newTotalCount
+        })
+        .eq('id', currentPlan.id)
+
+      if (planUpdateError) throw planUpdateError
+
+      // 4. Atualizar estados locais
+      setCurrentInstallments(updatedInsts)
+      setCurrentPlan(prev => ({ ...prev, parcelas_total: newTotalCount }))
+
+      // 5. Atualizar estatísticas das reservas
+      const total = updatedInsts.reduce((acc, i) => acc + Number(i.valor || 0), 0)
+      const paid = updatedInsts.filter(i => String(i.status) === 'pago').reduce((acc, i) => acc + Number(i.valor || 0), 0)
+      const overdue = updatedInsts.filter(i => String(i.status) === 'atrasado').reduce((acc, i) => acc + Number(i.valor || 0), 0)
+      const pct = total > 0 ? Math.round((paid / total) * 100) : 0
+      const hasOverdue = updatedInsts.some(i => String(i.status) === 'atrasado')
+
+      if (openViewPlan) {
+        const bid = openViewPlan.booking.id
+        const pid = openViewPlan.passenger.passageiroId
+        setBookings(prev => prev.map(b => {
+          if (b.id !== bid) return b
+          return {
+            ...b,
+            passengers: b.passengers.map(p => p.passageiroId === String(pid) ? {
+              ...p,
+              progressPercent: pct,
+              hasOverdue,
+              totalAmount: total,
+              paidAmount: paid,
+              overdueAmount: overdue
+            } : p)
+          }
+        }))
+      }
+
+      toast({ title: 'Sucesso', description: 'Parcela excluída com sucesso.' })
+      setDeletingInstallment(null)
+    } catch (err) {
+      toast({ title: 'Erro', description: err.message || 'Falha ao excluir parcela.', variant: 'destructive' })
     }
   }
 
@@ -1189,6 +1253,15 @@ const FinanceManagement = () => {
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
+                          <Button
+                            onClick={() => setDeletingInstallment(inst)}
+                            size="icon"
+                            variant="ghost"
+                            className="text-red-500/50 hover:text-red-500 hover:bg-red-500/10 h-9 w-9"
+                            title="Excluir parcela"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                           
                           {inst.status !== 'pago' ? (
                             <Button
@@ -1286,6 +1359,32 @@ const FinanceManagement = () => {
             <Button variant="ghost" onClick={() => setEditingInstallment(null)} className="text-white hover:bg-white/10">Cancelar</Button>
             <Button onClick={handleSaveEdit} disabled={isSavingEdit} className="bg-[#ECAE62] hover:bg-[#8C641C] text-[#0B1420]">
               {isSavingEdit ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deletingInstallment} onOpenChange={(open) => !open && setDeletingInstallment(null)}>
+        <DialogContent className="bg-[#0F172A] border-white/20 text-white max-w-sm [&>button:last-child]:hidden">
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription className="text-white/80">
+              Tem certeza que deseja excluir a parcela #{deletingInstallment?.numero}? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-row gap-2 mt-4">
+            <Button 
+              variant="ghost" 
+              onClick={() => setDeletingInstallment(null)} 
+              className="flex-1 text-white hover:bg-white/10"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleDeleteInstallment} 
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold"
+            >
+              Excluir
             </Button>
           </DialogFooter>
         </DialogContent>
