@@ -147,7 +147,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
     if (reservationIds.length > 0) {
       const { data: paxResData } = await supabase
         .from('passageiros_reserva')
-        .select('id, reserva_id, numero_assento, passageiro_id, presente, notificado_sucesso')
+        .select('id, reserva_id, numero_assento, passageiro_id, presente, notificado_sucesso, is_guide')
         .in('reserva_id', reservationIds)
       paxRes = paxResData || []
     }
@@ -188,6 +188,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
           if (val === false || val === 'false' || val === 0) return false
           return null
         })(),
+        isGuide: p.is_guide === true || p.is_guide === 'true',
         notificadoSucesso: p.notificado_sucesso === true || p.notificado_sucesso === 'true',
       })
       acc[p.reserva_id] = arr
@@ -701,6 +702,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
                     <Users className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 text-[#ECAE62] flex-shrink-0" />
                     <span className="truncate">
                       {booking.passengers[0]?.name || 'Sem nome'}
+                      {booking.passengers[0]?.isGuide && <span className="text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded ml-2 border border-blue-500/30">GUIA</span>}
                       {isBirthdayMonth(booking.passengers[0]?.birthDate, excursions.find(e => e.id === booking.excursionId)?.date) && ' 🎂'}
                     </span>
                     </div>
@@ -805,6 +807,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
                 <div>
                   <h3 className="text-xl sm:text-2xl font-bold text-white mb-1">
                     {selectedBooking.passengers[0].name}
+                    {selectedBooking.passengers[0].isGuide && <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded ml-3 border border-blue-500/30">GUIA</span>}
                     {isBirthdayMonth(selectedBooking.passengers[0]?.birthDate, excursions.find(e => e.id === selectedBooking.excursionId)?.date) && ' 🎂'}
                   </h3>
                   {selectedBooking.passengers[0].phone && (

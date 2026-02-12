@@ -109,7 +109,7 @@ const FinanceManagement = () => {
         .select(`
           id, excursao_id, onibus_id, status, criado_em,
           passageiros_reserva (
-            id, numero_assento, passageiro_id, presente,
+            id, numero_assento, passageiro_id, presente, is_guide,
             passageiros (id, nome, telefone)
           )
         `)
@@ -207,6 +207,7 @@ const FinanceManagement = () => {
             name: (ref.nome || '').toUpperCase(),
             phone: ref.telefone || '',
             passageiroId: String(paxRes.passageiro_id),
+            isGuide: paxRes.is_guide === true || paxRes.is_guide === 'true',
             hasPlan: plan.hasPlan,
             progressPercent: plan.pct,
             hasOverdue: plan.hasOverdue,
@@ -896,6 +897,7 @@ const FinanceManagement = () => {
             let totalOverdue = 0
             
             allFilteredPassengers.forEach(p => {
+              if (p.isGuide) return
               totalAmount += Number(p.totalAmount || 0)
               totalPaid += Number(p.paidAmount || 0)
               totalOverdue += Number(p.overdueAmount || 0)
@@ -957,28 +959,40 @@ const FinanceManagement = () => {
                   <div className="flex flex-col items-center text-center w-full">
                     <p className="font-semibold text-sm sm:text-base text-white mb-2 sm:mb-2.5 truncate w-full px-2">
                       {p.name}
+                      {p.isGuide && <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded ml-2 border border-blue-500/30">GUIA</span>}
                     </p>
-                    <div className={`mb-2 sm:mb-2.5 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-semibold ${p.hasOverdue ? 'bg-red-500/80 text-white border border-red-600' : 'bg-green-500/80 text-white border border-green-600'}`}>
-                      {p.hasOverdue ? 'Inadimplente' : 'Em dias'}
-                    </div>
-                    <p className="text-white/80 text-[11px] sm:text-xs mb-2 sm:mb-3">
-                      {getExcursionName(p.booking.excursionId)} • Assento {p.seatNumber} • {formatDate(p.booking.date)}
-                    </p>
-                    <div className="mt-2.5 sm:mt-3 w-full">
-                      <div className="relative w-full bg-gray-600/50 rounded-full h-3 sm:h-4 overflow-hidden">
-                        <div
-                          className="bg-[#ECAE62] h-full"
-                          style={{ width: `${Math.max(0, Math.min(100, Number(p.progressPercent || 0)))}%` }}
-                        />
-                        <span className="absolute inset-0 flex items-center justify-center text-white text-[10px] sm:text-xs font-semibold">
-                          {Math.round(Number(p.progressPercent || 0))}%
-                        </span>
+                    {!p.isGuide ? (
+                      <>
+                        <div className={`mb-2 sm:mb-2.5 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-semibold ${p.hasOverdue ? 'bg-red-500/80 text-white border border-red-600' : 'bg-green-500/80 text-white border border-green-600'}`}>
+                          {p.hasOverdue ? 'Inadimplente' : 'Em dias'}
+                        </div>
+                        <p className="text-white/80 text-[11px] sm:text-xs mb-2 sm:mb-3">
+                          {getExcursionName(p.booking.excursionId)} • Assento {p.seatNumber} • {formatDate(p.booking.date)}
+                        </p>
+                        <div className="mt-2.5 sm:mt-3 w-full">
+                          <div className="relative w-full bg-gray-600/50 rounded-full h-3 sm:h-4 overflow-hidden">
+                            <div
+                              className="bg-[#ECAE62] h-full"
+                              style={{ width: `${Math.max(0, Math.min(100, Number(p.progressPercent || 0)))}%` }}
+                            />
+                            <span className="absolute inset-0 flex items-center justify-center text-white text-[10px] sm:text-xs font-semibold">
+                              {Math.round(Number(p.progressPercent || 0))}%
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="py-4 w-full text-center">
+                        <p className="text-blue-400/70 text-xs font-medium italic">Isento de pagamento (Guia)</p>
+                        <p className="text-white/50 text-[10px] mt-1">
+                          {getExcursionName(p.booking.excursionId)} • Assento {p.seatNumber}
+                        </p>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-row justify-center gap-2 w-full pt-2 border-t border-white/10">
-                  {!p.hasPlan && (
+                  {!p.isGuide && !p.hasPlan && (
                     <Button
                       onClick={() => handleOpenPlan(p.booking, p)}
                       size="sm"
@@ -988,7 +1002,7 @@ const FinanceManagement = () => {
                       Inserir Pagamento
                     </Button>
                   )}
-                  {p.hasPlan && (
+                  {!p.isGuide && p.hasPlan && (
                     <Button
                       onClick={() => handleOpenViewPlan(p.booking, p)}
                       size="sm"
@@ -996,6 +1010,11 @@ const FinanceManagement = () => {
                     >
                       Ver Plano
                     </Button>
+                  )}
+                  {p.isGuide && (
+                    <div className="flex items-center justify-center py-2 w-full">
+                      <span className="text-white/30 text-[11px] font-medium uppercase tracking-wider">Acesso Administrativo</span>
+                    </div>
                   )}
                 </div>
               </motion.div>

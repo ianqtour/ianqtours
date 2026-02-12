@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 
 const UserFlow = ({ onAdminClick, initialExcursion, isAdmin = false }) => {
   const navigate = useNavigate()
@@ -44,6 +45,7 @@ const UserFlow = ({ onAdminClick, initialExcursion, isAdmin = false }) => {
   const [confirmedPassenger, setConfirmedPassenger] = useState(null)
   const [cpfChecking, setCpfChecking] = useState(false)
   const [isRandomCpf, setIsRandomCpf] = useState(false)
+  const [isGuide, setIsGuide] = useState(false)
 
   useEffect(() => {
     if (initialExcursion) {
@@ -137,6 +139,7 @@ const UserFlow = ({ onAdminClick, initialExcursion, isAdmin = false }) => {
     setSelectedSeats(seats);
     setCpfValue('')
     setPrefillCpf('')
+    setIsGuide(false)
     setCpfOpen(true)
   };
 
@@ -217,6 +220,7 @@ const UserFlow = ({ onAdminClick, initialExcursion, isAdmin = false }) => {
         numero_assento: seatNum,
         passageiro_id: it.passageiro_id,
         presente: false,
+        is_guide: isGuide,
       }).select('id').single()
       if (linkRes.error) {
         const msg = linkRes.error.message || 'Falha ao criar vínculo'
@@ -258,7 +262,7 @@ const UserFlow = ({ onAdminClick, initialExcursion, isAdmin = false }) => {
         telefone: confirmedPassenger?.telefone || '',
       })
     }
-    if (payloads.length > 0) {
+    if (payloads.length > 0 && !isGuide) {
       try {
         await Promise.all(payloads.map(body =>
           fetch(webhookUrl, {
@@ -281,6 +285,7 @@ const UserFlow = ({ onAdminClick, initialExcursion, isAdmin = false }) => {
   const cancelReservation = () => {
     setConfirmOpen(false)
     setConfirmedPassenger(null)
+    setIsGuide(false)
     setStep(3)
   }
 
@@ -368,6 +373,7 @@ const UserFlow = ({ onAdminClick, initialExcursion, isAdmin = false }) => {
     setPrefillCpf('')
     setConfirmedPassenger(null)
     setCpfOpen(false)
+    setIsGuide(false)
     setStep(2);
   };
 
@@ -499,8 +505,19 @@ const UserFlow = ({ onAdminClick, initialExcursion, isAdmin = false }) => {
               <div>Data: <span className="font-semibold">{formatDateOnly(selectedExcursion?.date)}</span></div>
               <div>Ônibus: <span className="font-semibold">{selectedBus?.identification || selectedBus?.type || selectedBus?.name}</span></div>
               <div>Assento: <span className="font-semibold">{selectedSeats.join(', ')}</span></div>
+              
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10 mt-4">
+                <div className="space-y-0.5">
+                  <Label className="text-white text-base">Passageiro é Guia?</Label>
+                  <p className="text-white/60 text-xs">Se marcado, não enviará notificação de confirmação.</p>
+                </div>
+                <Switch 
+                  checked={isGuide} 
+                  onCheckedChange={setIsGuide}
+                />
+              </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 mt-6">
               <Button onClick={cancelReservation} className="flex-1 bg-transparent border border-white/30 text-white hover:bg-white/10">Cancelar</Button>
               <Button onClick={confirmReservation} className="flex-1 bg-[#ECAE62] hover:bg-[#8C641C] text-[#0B1420]">Confirmar</Button>
             </div>
