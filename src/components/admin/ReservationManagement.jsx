@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar, MapPin, Bus, Users, Trash2, Eye, Armchair, X, CheckCircle, Pencil, ChevronLeft, ChevronRight, Send, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +39,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
   const [editBooking, setEditBooking] = useState(null);
   const [editBusId, setEditBusId] = useState(null);
   const [editSeatNumber, setEditSeatNumber] = useState('');
+  const [editIsGuide, setEditIsGuide] = useState(false);
   const [seatOptions, setSeatOptions] = useState([]);
   const [savingEdit, setSavingEdit] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -287,6 +290,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
     const initialBus = booking.busId ? String(booking.busId) : '';
     setEditBusId(initialBus);
     setEditSeatNumber(String(passenger.seatNumber || ''));
+    setEditIsGuide(passenger.isGuide || false);
     setEditOpen(true);
     loadSeatOptions(booking.busId, passenger.seatNumber);
   };
@@ -318,7 +322,10 @@ const ReservationManagement = ({ allowCancel = true }) => {
       if (!busChanged) {
         await supabase
           .from('passageiros_reserva')
-          .update({ numero_assento: newSeat })
+          .update({ 
+            numero_assento: newSeat,
+            is_guide: editIsGuide
+          })
           .eq('id', editPassenger.id);
         await supabase
           .from('assentos_onibus')
@@ -359,6 +366,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
           .update({
             reserva_id: newRes.id,
             numero_assento: newSeat,
+            is_guide: editIsGuide,
           })
           .eq('id', editPassenger.id);
 
@@ -386,6 +394,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
       setEditBooking(null);
       setEditBusId(null);
       setEditSeatNumber('');
+      setEditIsGuide(false);
       toast({ title: 'Atualizado', description: 'Poltrona e status dos assentos atualizados.' });
     } catch (e) {
       toast({ title: 'Erro ao atualizar', description: 'Tente novamente.' });
@@ -1044,6 +1053,16 @@ const ReservationManagement = ({ allowCancel = true }) => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10 mt-2">
+              <div className="space-y-0.5">
+                <Label className="text-white text-sm">Passageiro é Guia?</Label>
+                <p className="text-white/60 text-[10px]">Guias são isentos de cobranças financeiras.</p>
+              </div>
+              <Switch 
+                checked={editIsGuide} 
+                onCheckedChange={setEditIsGuide}
+              />
             </div>
           </div>
           <DialogFooter className="flex gap-2 pt-2">
