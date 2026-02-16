@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar, MapPin, Bus, Users, Trash2, Eye, Armchair, X, CheckCircle, Pencil, ChevronLeft, ChevronRight, Send, Loader2 } from 'lucide-react';
+import { Calendar, MapPin, Bus, Users, Trash2, Eye, Armchair, X, CheckCircle, Pencil, ChevronLeft, ChevronRight, Send, Loader2, Wallet, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -49,6 +49,10 @@ const ReservationManagement = ({ allowCancel = true }) => {
   const [sendingNotification, setSendingNotification] = useState(false);
   const [processingModalOpen, setProcessingModalOpen] = useState(false);
   const [countdown, setCountdown] = useState(10);
+  const [refundAmount, setRefundAmount] = useState(0);
+  const [refundDetails, setRefundDetails] = useState([]);
+  const [convertToCredit, setConvertToCredit] = useState(false);
+  const [calculatingRefund, setCalculatingRefund] = useState(false);
 
   const normalizeText = (s) => (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const formatDate = (dateStr) => {
@@ -445,13 +449,107 @@ const ReservationManagement = ({ allowCancel = true }) => {
     });
   };
 
+  const calculateRefundValues = async (bookingId) => {
+    setCalculatingRefund(true);
+    setRefundAmount(0);
+    setRefundDetails([]);
+    
+    try {
+      const { data: plans, error: plansError } = await supabase
+        .from('finance_payment_plans')
+        .select('id, passageiro_id, valor_creditos')
+        .eq('reserva_id', bookingId);
+        
+      if (plansError || !plans || plans.length === 0) {
+        setCalculatingRefund(false);
+        return;
+      }
+
+      const planIds = plans.map(p => p.id);
+      
+      const { data: installments, error: instError } = await supabase
+        .from('finance_installments')
+        .select('plano_id, valor')
+        .in('plano_id', planIds)
+        .eq('status', 'pago');
+        
+      if (instError || !installments) {
+        setCalculatingRefund(false);
+        return;
+      }
+
+      let total = 0;
+      const detailsMap = {};
+
+      // Somar pagamentos das parcelas
+      installments.forEach(inst => {
+        const plan = plans.find(p => p.id === inst.plano_id);
+        if (plan) {
+            const val = Number(inst.valor || 0);
+            total += val;
+            detailsMap[plan.passageiro_id] = (detailsMap[plan.passageiro_id] || 0) + val;
+        }
+      });
+
+      // Somar créditos já utilizados nos planos
+      plans.forEach(plan => {
+          const creditUsed = Number(plan.valor_creditos || 0);
+          if (creditUsed > 0) {
+              total += creditUsed;
+              detailsMap[plan.passageiro_id] = (detailsMap[plan.passageiro_id] || 0) + creditUsed;
+          }
+      });
+
+      setRefundAmount(total);
+      setRefundDetails(Object.entries(detailsMap).map(([pid, val]) => ({ passageiroId: pid, valor: val })));
+
+    } catch (error) {
+      console.error("Erro ao calcular reembolso", error);
+    } finally {
+      setCalculatingRefund(false);
+    }
+  };
+
   const requestDeleteBooking = (bookingId) => {
     setConfirmDeleteId(bookingId)
     setConfirmOpen(true)
+    setConvertToCredit(false) // Resetar o toggle ao abrir
+    calculateRefundValues(bookingId)
   };
 
   const handleConfirmDeleteBooking = async () => {
     if (!confirmDeleteId) return
+    
+    // Processar conversão de créditos
+    if (convertToCredit && refundDetails.length > 0) {
+      try {
+        for (const item of refundDetails) {
+            const { data: pax, error: paxError } = await supabase
+                .from('passageiros')
+                .select('creditos')
+                .eq('id', item.passageiroId)
+                .single();
+            
+            if (!paxError) {
+                const currentCredit = Number(pax?.creditos || 0);
+                const newCredit = currentCredit + item.valor;
+                
+                await supabase
+                    .from('passageiros')
+                    .update({ creditos: newCredit })
+                    .eq('id', item.passageiroId);
+            }
+        }
+        toast({
+            title: "Créditos Convertidos",
+            description: `R$ ${refundAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} foram convertidos em créditos.`,
+        });
+      } catch (e) {
+        console.error("Erro ao converter créditos", e);
+        toast({ title: "Erro", description: "Falha ao converter créditos.", variant: "destructive" });
+      }
+    }
+
     await handleDeleteBooking(confirmDeleteId)
     setConfirmOpen(false)
     setConfirmDeleteId(null)
@@ -999,9 +1097,53 @@ const ReservationManagement = ({ allowCancel = true }) => {
               Ao cancelar, o status da reserva será alterado para "cancelada" e os assentos serão liberados. Tem certeza que deseja cancelar esta reserva?
             </DialogDescription>
           </DialogHeader>
+
+          {calculatingRefund ? (
+            <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-6 w-6 text-[#ECAE62] animate-spin" />
+                <span className="ml-2 text-white/70">Verificando pagamentos...</span>
+            </div>
+          ) : refundAmount > 0 && (
+            <div className="py-4 space-y-4">
+                <div className="bg-white/5 p-4 rounded-lg border border-white/10">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Wallet className="h-5 w-5 text-[#ECAE62]" />
+                        <span className="text-white font-semibold">Valor Pago Detectado</span>
+                    </div>
+                    <p className="text-2xl font-bold text-white">
+                        {refundAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </p>
+                    <p className="text-xs text-white/60 mt-1">
+                        Soma dos pagamentos confirmados desta reserva.
+                    </p>
+                </div>
+
+                <div className="flex items-start space-x-3 bg-white/5 p-3 rounded-lg border border-white/10">
+                    <Switch
+                        id="convert-credit"
+                        checked={convertToCredit}
+                        onCheckedChange={setConvertToCredit}
+                    />
+                    <div className="grid gap-1.5 leading-none">
+                        <Label
+                            htmlFor="convert-credit"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-white cursor-pointer"
+                        >
+                            Converter em Créditos
+                        </Label>
+                        <p className="text-xs text-white/70">
+                            Se ativado, o valor pago será adicionado ao saldo de créditos do(s) passageiro(s).
+                        </p>
+                    </div>
+                </div>
+            </div>
+          )}
+
           <DialogFooter className="flex-row gap-2 sm:gap-2">
             <Button onClick={() => setConfirmOpen(false)} className="flex-1 bg-white text-[#0F172A] hover:bg-gray-100 text-sm sm:text-base">Não cancelar</Button>
-            <Button onClick={handleConfirmDeleteBooking} className="flex-1 bg-red-600 text-white hover:bg-red-700 text-sm sm:text-base">Confirmar cancelamento</Button>
+            <Button onClick={handleConfirmDeleteBooking} className="flex-1 bg-red-600 text-white hover:bg-red-700 text-sm sm:text-base">
+                {convertToCredit ? "Cancelar e Creditar" : "Confirmar cancelamento"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

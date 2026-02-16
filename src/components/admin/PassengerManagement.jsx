@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Users, Search, Pencil, Phone, Calendar, User, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
+import { Users, Search, Pencil, Phone, Calendar, User, ChevronLeft, ChevronRight, AlertCircle, Wallet } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Dialog,
@@ -31,7 +31,8 @@ const PassengerManagement = () => {
     nome: '',
     cpf: '',
     telefone: '',
-    data_nascimento: ''
+    data_nascimento: '',
+    creditos: '0,00'
   });
 
   useEffect(() => {
@@ -120,7 +121,8 @@ const PassengerManagement = () => {
       nome: (passenger.nome || '').toUpperCase(),
       cpf: maskCPF(passenger.cpf || ''),
       telefone: maskPhone(passenger.telefone || ''),
-      data_nascimento: passenger.data_nascimento || ''
+      data_nascimento: passenger.data_nascimento || '',
+      creditos: (passenger.creditos || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     });
     // Validar CPF inicial ao abrir
     if (passenger.cpf) {
@@ -152,6 +154,13 @@ const PassengerManagement = () => {
     setFormData(prev => ({ ...prev, telefone: value }));
   };
 
+  const handleCreditChange = (e) => {
+    let value = e.target.value.replace(/\D/g, '');
+    const numericValue = parseFloat(value) / 100;
+    const formatted = numericValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    setFormData(prev => ({ ...prev, creditos: formatted }));
+  };
+
   const handleSave = async () => {
     if (!currentPassenger) return;
     
@@ -170,7 +179,8 @@ const PassengerManagement = () => {
 
     try {
       const cleanCPF = formData.cpf.replace(/\D/g, '');
-      const cleanPhone = formData.telefone; // Manter formatação se desejar ou limpar
+      const cleanPhone = formData.telefone;
+      const creditosNumerico = parseFloat(formData.creditos.replace(/\./g, '').replace(',', '.'));
 
       const { error } = await supabase
         .from('passageiros')
@@ -178,7 +188,8 @@ const PassengerManagement = () => {
           nome: formData.nome,
           cpf: cleanCPF,
           telefone: cleanPhone,
-          data_nascimento: formData.data_nascimento || null
+          data_nascimento: formData.data_nascimento || null,
+          creditos: creditosNumerico
         })
         .eq('id', currentPassenger.id);
 
@@ -191,7 +202,8 @@ const PassengerManagement = () => {
               nome: formData.nome,
               cpf: cleanCPF,
               telefone: cleanPhone,
-              data_nascimento: formData.data_nascimento 
+              data_nascimento: formData.data_nascimento,
+              creditos: creditosNumerico
             } 
           : p
       ));
@@ -251,6 +263,13 @@ const PassengerManagement = () => {
     if (!cpf) return 'Não informado';
     const cleanCPF = cpf.replace(/\D/g, '');
     return cleanCPF.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  };
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    }).format(value);
   };
 
   return (
@@ -326,6 +345,12 @@ const PassengerManagement = () => {
                     <Calendar className="h-4 w-4 text-[#ECAE62]" />
                   </div>
                   <span>{formatDate(passenger.data_nascimento)}</span>
+                </div>
+                <div className="flex items-center text-sm text-white/70">
+                  <div className="w-6 flex justify-center mr-2">
+                    <Wallet className="h-4 w-4 text-[#ECAE62]" />
+                  </div>
+                  <span className="font-medium text-[#ECAE62]">{formatCurrency(passenger.creditos || 0)}</span>
                 </div>
               </div>
 
@@ -428,6 +453,15 @@ const PassengerManagement = () => {
                 value={formData.data_nascimento}
                 onChange={(e) => setFormData({...formData, data_nascimento: e.target.value})}
                 className="bg-white/10 border-white/20 text-white"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-white/80">Créditos (R$)</label>
+              <Input
+                value={formData.creditos}
+                onChange={handleCreditChange}
+                className="bg-white/10 border-white/20 text-white font-bold text-[#ECAE62]"
+                placeholder="0,00"
               />
             </div>
           </div>

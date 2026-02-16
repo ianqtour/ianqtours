@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Calendar, MapPin, Users, Armchair, BadgeDollarSign, CheckCircle, AlertTriangle, RotateCcw, Pencil, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { Calendar, MapPin, Users, Armchair, BadgeDollarSign, CheckCircle, AlertTriangle, RotateCcw, Pencil, ChevronLeft, ChevronRight, Plus, Trash2, Wallet } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,8 @@ const FinanceManagement = () => {
   const [primeiroPagamento, setPrimeiroPagamento] = useState('')
   const [loading, setLoading] = useState(false)
   const [tablesMissing, setTablesMissing] = useState(false)
+  const [useCredits, setUseCredits] = useState(false)
+  const [creditsToUse, setCreditsToUse] = useState('')
   const { toast } = useToast()
 
   const normalizeText = (s) => (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -110,7 +113,7 @@ const FinanceManagement = () => {
           id, excursao_id, onibus_id, status, criado_em,
           passageiros_reserva (
             id, numero_assento, passageiro_id, presente, is_guide,
-            passageiros (id, nome, telefone)
+            passageiros (id, nome, telefone, creditos)
           )
         `)
         .neq('status', 'cancelada')
@@ -172,8 +175,11 @@ const FinanceManagement = () => {
             }
 
             const insts = plan.finance_installments || []
-            planData.totalAmount = insts.reduce((acc, i) => acc + Number(i.valor || 0), 0)
-            planData.paidAmount = insts.filter(i => String(i.status) === 'pago').reduce((acc, i) => acc + Number(i.valor || 0), 0)
+            // Considerar créditos como valor pago
+            const creditAmount = Number(plan.valor_creditos || 0)
+            
+            planData.totalAmount = insts.reduce((acc, i) => acc + Number(i.valor || 0), 0) + creditAmount
+            planData.paidAmount = insts.filter(i => String(i.status) === 'pago').reduce((acc, i) => acc + Number(i.valor || 0), 0) + creditAmount
             planData.overdueAmount = insts.filter(i => String(i.status) === 'atrasado').reduce((acc, i) => acc + Number(i.valor || 0), 0)
             planData.hasOverdue = insts.some(i => String(i.status) === 'atrasado')
             planData.pct = planData.totalAmount > 0 ? Math.round((planData.paidAmount / planData.totalAmount) * 100) : 0
@@ -206,6 +212,7 @@ const FinanceManagement = () => {
             seatNumber: Number(paxRes.numero_assento),
             name: (ref.nome || '').toUpperCase(),
             phone: ref.telefone || '',
+            creditos: Number(ref.creditos || 0),
             passageiroId: String(paxRes.passageiro_id),
             isGuide: paxRes.is_guide === true || paxRes.is_guide === 'true',
             hasPlan: plan.hasPlan,
@@ -270,6 +277,8 @@ const FinanceManagement = () => {
     setValorParcela('')
     setQtdParcelas('1')
     setPrimeiroPagamento('')
+    setUseCredits(false)
+    setCreditsToUse('')
   }
 
   const handleOpenViewPlan = async (booking, passenger) => {
@@ -435,6 +444,23 @@ const FinanceManagement = () => {
   const [newInstDate, setNewInstDate] = useState('')
   const [isSavingNewInst, setIsSavingNewInst] = useState(false)
   const [deletingInstallment, setDeletingInstallment] = useState(null)
+
+  const getExcursionPrice = (excursionId) => {
+    const e = excursions.find(x => x.id === excursionId)
+    return e ? Number(e.price || 0) : 0
+  }
+
+  // Cálculos para o modal de criação de plano
+  const planCreationState = React.useMemo(() => {
+    if (!openPlanFor) return null;
+    const excursionPrice = getExcursionPrice(openPlanFor.booking.excursionId);
+    const creditVal = useCredits ? Number(String(creditsToUse).replace(',', '.')) : 0;
+    const remaining = Math.max(0, excursionPrice - creditVal);
+    const isDisabled = remaining <= 0;
+    const passengerCredits = Number(openPlanFor.passenger.creditos || 0);
+    const isExceeded = creditVal > excursionPrice;
+    return { excursionPrice, creditVal, remaining, isDisabled, passengerCredits, isExceeded };
+  }, [openPlanFor, useCredits, creditsToUse, excursions]);
 
   const handleOpenEdit = (inst) => {
     setEditingInstallment(inst)
@@ -709,17 +735,42 @@ const FinanceManagement = () => {
     if (!openPlanFor) return
     const booking = openPlanFor.booking
     const passenger = openPlanFor.passenger
-    const entradaNum = Number(String(entrada).replace(',', '.')) || 0
-    const parcelaNum = Number(String(valorParcela).replace(',', '.')) || 0
-    const parcelasTot = Math.max(1, Number(qtdParcelas))
-    if (!primeiroPagamento) {
-      toast({ title: 'Data do primeiro pagamento obrigatória', description: 'Informe a data', variant: 'destructive' })
-      return
+    
+    // Validar créditos
+    const creditVal = useCredits ? Number(String(creditsToUse).replace(',', '.')) : 0
+    if (useCredits) {
+        if (creditVal <= 0) {
+            toast({ title: 'Valor de crédito inválido', description: 'Informe um valor maior que zero.', variant: 'destructive' })
+            return
+        }
+        if (creditVal > passenger.creditos) {
+            toast({ title: 'Saldo insuficiente', description: 'O valor excede o saldo de créditos do passageiro.', variant: 'destructive' })
+            return
+        }
     }
-    if (parcelaNum <= 0) {
-      toast({ title: 'Valor da parcela inválido', description: 'Informe um valor maior que zero', variant: 'destructive' })
-      return
+
+    const excursionPrice = getExcursionPrice(booking.excursionId)
+    const remainingAmount = Math.max(0, excursionPrice - creditVal)
+    
+    let entradaNum = 0
+    let parcelaNum = 0
+    let parcelasTot = 0
+
+    if (remainingAmount > 0) {
+        entradaNum = Number(String(entrada).replace(',', '.')) || 0
+        parcelaNum = Number(String(valorParcela).replace(',', '.')) || 0
+        parcelasTot = Math.max(1, Number(qtdParcelas))
+        
+        if (!primeiroPagamento) {
+          toast({ title: 'Data do primeiro pagamento obrigatória', description: 'Informe a data', variant: 'destructive' })
+          return
+        }
+        if (parcelaNum <= 0) {
+          toast({ title: 'Valor da parcela inválido', description: 'Informe um valor maior que zero', variant: 'destructive' })
+          return
+        }
     }
+
     setLoading(true)
     setTablesMissing(false)
     try {
@@ -730,36 +781,84 @@ const FinanceManagement = () => {
         entrada_valor: entradaNum,
         parcela_valor: parcelaNum,
         parcelas_total: parcelasTot,
-        primeiro_pagamento_data: primeiroPagamento,
+        primeiro_pagamento_data: primeiroPagamento || new Date().toISOString().split('T')[0], // Fallback date if covered by credits
         status: 'ativo',
+        usa_creditos: useCredits,
+        valor_creditos: creditVal
       }
       const plan = await tryInsertPlan(planPayload)
       const rows = []
-      if (entradaNum > 0) {
-        const today = new Date()
-        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-        rows.push({
-          plano_id: plan.id,
-          numero: 0,
-          vencimento: todayStr,
-          valor: entradaNum,
-          status: getStatusFromDate(todayStr),
-        })
+
+      // Deduzir dos créditos do passageiro
+      if (creditVal > 0) {
+        await supabase
+          .from('passageiros')
+          .update({ creditos: passenger.creditos - creditVal })
+          .eq('id', passenger.passageiroId)
       }
-      for (let i = 1; i <= parcelasTot; i++) {
-        const due = i === 1 ? primeiroPagamento : monthAddSameDay(primeiroPagamento, i - 1)
-        rows.push({
-          plano_id: plan.id,
-          numero: i,
-          vencimento: due,
-          valor: parcelaNum,
-          status: getStatusFromDate(due),
-        })
+
+      if (remainingAmount > 0) {
+        if (entradaNum > 0) {
+            const today = new Date()
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+            rows.push({
+            plano_id: plan.id,
+            numero: 0,
+            vencimento: todayStr,
+            valor: entradaNum,
+            status: getStatusFromDate(todayStr),
+            })
+        }
+        for (let i = 1; i <= parcelasTot; i++) {
+            const due = i === 1 ? primeiroPagamento : monthAddSameDay(primeiroPagamento, i - 1)
+            rows.push({
+            plano_id: plan.id,
+            numero: i,
+            vencimento: due,
+            valor: parcelaNum,
+            status: getStatusFromDate(due),
+            })
+        }
       }
-      await tryInsertInstallments(rows)
+
+      if (rows.length > 0) {
+        await tryInsertInstallments(rows)
+      }
+      
+      let desc = `Plano criado.`
+      if (creditVal > 0) desc += ` Crédito: R$ ${creditVal.toFixed(2)}.`
+      if (remainingAmount > 0) desc += ` Restante: Entrada R$ ${entradaNum.toFixed(2)} + ${parcelasTot}× R$ ${parcelaNum.toFixed(2)}.`
+      
+      // Notificar Webhook
+      try {
+        const webhookPayload = {
+            nome: passenger.name,
+            excursao: getExcursionName(booking.excursionId),
+            assento: Number(passenger.seatNumber),
+            valor_excursao: excursionPrice,
+            telefone: passenger.phone,
+            usado_credito: useCredits ? 'Sim' : 'Não',
+            valor_usado_credito: creditVal,
+            parcelas: rows.map(r => ({
+                numero: r.numero,
+                vencimento: r.vencimento,
+                valor: r.valor,
+                tipo: r.numero === 0 ? 'Entrada' : 'Parcela'
+            }))
+        };
+        
+        await fetch('https://n8n-n8n.j6kpgx.easypanel.host/webhook/plano-creditos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(webhookPayload)
+        });
+      } catch (e) {
+        console.error("Erro ao chamar webhook de plano", e);
+      }
+
       toast({
         title: 'Plano criado',
-        description: `Entrada R$ ${entradaNum.toFixed(2)} + ${parcelasTot}× R$ ${parcelaNum.toFixed(2)} a partir de ${formatDate(primeiroPagamento)}.`,
+        description: desc,
       })
       setOpenPlanFor(null)
       await loadBookings()
@@ -779,10 +878,6 @@ const FinanceManagement = () => {
   const getExcursionName = (excursionId) => {
     const e = excursions.find(x => x.id === excursionId)
     return e ? e.name : 'Desconhecida'
-  }
-  const getExcursionPrice = (excursionId) => {
-    const e = excursions.find(x => x.id === excursionId)
-    return e ? Number(e.price || 0) : 0
   }
 
   const getBusLabelById = async (busId) => {
@@ -1059,73 +1154,119 @@ const FinanceManagement = () => {
             <DialogDescription className="text-white/80 text-sm">
               Defina entrada, parcelas, quantidade e a data do primeiro pagamento.
             </DialogDescription>
-            {openPlanFor && (
-              <div className="mt-2">
-                <span className="inline-block text-xs sm:text-sm text-[#0B1420] bg-[#ECAE62] rounded-full px-3 py-1 font-semibold border border-[#8C641C]">
-                  Total da excursão: R$ {getExcursionPrice(openPlanFor.booking.excursionId).toFixed(2)}
-                </span>
+            {openPlanFor && planCreationState && (
+              <div className="mt-2 space-y-2">
+                <div>
+                  <span className="inline-block text-xs sm:text-sm text-[#0B1420] bg-[#ECAE62] rounded-full px-3 py-1 font-semibold border border-[#8C641C]">
+                    Total da excursão: R$ {planCreationState.excursionPrice.toFixed(2)}
+                  </span>
+                </div>
+                {planCreationState.passengerCredits > 0 && (
+                    <div className="bg-white/5 p-3 rounded-lg border border-white/10 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Wallet className="h-4 w-4 text-[#ECAE62]" />
+                                <div>
+                                    <p className="text-sm font-medium text-white">Usar Créditos</p>
+                                    <p className="text-xs text-white/60">Saldo: R$ {planCreationState.passengerCredits.toFixed(2)}</p>
+                                </div>
+                            </div>
+                            <Switch checked={useCredits} onCheckedChange={setUseCredits} />
+                        </div>
+                        
+                        {useCredits && (
+                            <div>
+                                <label className="block text-xs text-white/80 mb-1">Valor a utilizar (R$)</label>
+                                <Input 
+                                    type="number"
+                                    step="0.01"
+                                    value={creditsToUse}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setCreditsToUse(val);
+                                    }}
+                                    placeholder="0,00"
+                                    className={`bg-white/10 border-white/20 text-white h-8 text-sm ${
+                                        Number(creditsToUse) > planCreationState.passengerCredits || planCreationState.isExceeded ? 'border-red-500 focus:ring-red-500' : ''
+                                    }`}
+                                />
+                                {Number(creditsToUse) > planCreationState.passengerCredits && (
+                                    <p className="text-red-400 text-xs mt-1">
+                                        O valor não pode ser maior que o saldo de créditos (R$ {planCreationState.passengerCredits.toFixed(2)}).
+                                    </p>
+                                )}
+                                {planCreationState.isExceeded && (
+                                    <p className="text-red-400 text-xs mt-1">
+                                        O valor não pode ser maior que o total da excursão (R$ {planCreationState.excursionPrice.toFixed(2)}).
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
               </div>
             )}
           </DialogHeader>
-          {openPlanFor && (
+          {openPlanFor && planCreationState && (
             <div className="space-y-3">
-              <div>
-                <label className="block text-sm text-white/80 mb-1">Valor da entrada (R$)</label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
-                  value={entrada}
-                  onChange={(e) => {
-                    const v = e.target.value.replace(/[^\d.,-]/g, '')
-                    setEntrada(v)
-                  }}
-                  placeholder="Ex.: 25,00"
-                  className="bg-white/10 border-white/20 text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-white/80 mb-1">Valor da parcela (R$)</label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
-                  value={valorParcela}
-                  onChange={(e) => {
-                    const v = e.target.value.replace(/[^\d.,-]/g, '')
-                    setValorParcela(v)
-                  }}
-                  placeholder="Ex.: 100,00"
-                  className="bg-white/10 border-white/20 text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-white/80 mb-1">Quantidade de parcelas</label>
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  step="1"
-                  min="1"
-                  value={qtdParcelas}
-                  onChange={(e) => {
-                    const v = e.target.value.replace(/[^\d]/g, '')
-                    setQtdParcelas(v)
-                  }}
-                  placeholder="Ex.: 3"
-                  className="bg-white/10 border-white/20 text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-white/80 mb-1">Data do primeiro pagamento</label>
-                <Input
-                  type="date"
-                  value={primeiroPagamento}
-                  onChange={(e) => setPrimeiroPagamento(e.target.value)}
-                  className="bg-white/10 border-white/20 text-white"
-                />
-              </div>
+                <div className={`${planCreationState.isDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <label className="block text-sm text-white/80 mb-1">Valor da entrada (R$)</label>
+                    <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={entrada}
+                    onChange={(e) => {
+                        const v = e.target.value.replace(/[^\d.,-]/g, '')
+                        setEntrada(v)
+                    }}
+                    placeholder="Ex.: 25,00"
+                    className="bg-white/10 border-white/20 text-white"
+                    />
+                </div>
+                <div className={`${planCreationState.isDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <label className="block text-sm text-white/80 mb-1">Valor da parcela (R$)</label>
+                    <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={valorParcela}
+                    onChange={(e) => {
+                        const v = e.target.value.replace(/[^\d.,-]/g, '')
+                        setValorParcela(v)
+                    }}
+                    placeholder="Ex.: 100,00"
+                    className="bg-white/10 border-white/20 text-white"
+                    />
+                </div>
+                <div className={`${planCreationState.isDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <label className="block text-sm text-white/80 mb-1">Quantidade de parcelas</label>
+                    <Input
+                    type="number"
+                    inputMode="numeric"
+                    step="1"
+                    min="1"
+                    value={qtdParcelas}
+                    onChange={(e) => {
+                        const v = e.target.value.replace(/[^\d]/g, '')
+                        setQtdParcelas(v)
+                    }}
+                    placeholder="Ex.: 3"
+                    className="bg-white/10 border-white/20 text-white"
+                    />
+                </div>
+                <div className={`${planCreationState.isDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <label className="block text-sm text-white/80 mb-1">Data do primeiro pagamento</label>
+                    <Input
+                    type="date"
+                    value={primeiroPagamento}
+                    onChange={(e) => setPrimeiroPagamento(e.target.value)}
+                    className="bg-white/10 border-white/20 text-white"
+                    />
+                </div>
+
               {tablesMissing && (
                 <div className="flex items-start gap-2 bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 p-3 rounded-lg">
                   <AlertTriangle className="h-4 w-4 mt-0.5" />
@@ -1139,8 +1280,8 @@ const FinanceManagement = () => {
           <DialogFooter className="mt-2">
             <Button
               onClick={handleCreatePlan}
-              disabled={loading}
-              className="bg-[#ECAE62] hover:bg-[#8C641C] text-[#0B1420]"
+              disabled={loading || (useCredits && planCreationState && (Number(creditsToUse) > planCreationState.passengerCredits || planCreationState.isExceeded))}
+              className="bg-[#ECAE62] hover:bg-[#8C641C] text-[#0B1420] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CheckCircle className="h-4 w-4 mr-2" />
               {loading ? 'Salvando...' : 'Salvar Plano'}
@@ -1185,10 +1326,19 @@ const FinanceManagement = () => {
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden px-6 pb-6">
               <div className="bg-white/5 rounded-xl p-3 border border-white/10 mb-4">
                 <p className="text-sm text-white/90 leading-relaxed">
-                  Entrada: <span className="font-bold text-white">R$ {Number(currentPlan.entrada_valor || 0).toFixed(2)}</span> •
-                  Parcela: <span className="font-bold text-white">R$ {Number(currentPlan.parcela_valor || 0).toFixed(2)}</span> •
-                  Quantidade: <span className="font-bold text-white">{currentPlan.parcelas_total}</span> •
-                  Primeiro pagamento: <span className="font-bold text-white">{formatDate(currentPlan.primeiro_pagamento_data)}</span>
+                  {Number(currentPlan.parcelas_total) > 0 ? (
+                    <>
+                        Entrada: <span className="font-bold text-white">R$ {Number(currentPlan.entrada_valor || 0).toFixed(2)}</span> •
+                        Parcela: <span className="font-bold text-white">R$ {Number(currentPlan.parcela_valor || 0).toFixed(2)}</span> •
+                        Quantidade: <span className="font-bold text-white">{currentPlan.parcelas_total}</span> •
+                        Primeiro pagamento: <span className="font-bold text-white">{formatDate(currentPlan.primeiro_pagamento_data)}</span>
+                    </>
+                  ) : (
+                    <span className="font-bold text-green-400">Pago integralmente</span>
+                  )}
+                  {Number(currentPlan.valor_creditos) > 0 && (
+                    <> • Créditos Usados: <span className="font-bold text-[#ECAE62]">R$ {Number(currentPlan.valor_creditos).toFixed(2)}</span></>
+                  )}
                 </p>
               </div>
 
