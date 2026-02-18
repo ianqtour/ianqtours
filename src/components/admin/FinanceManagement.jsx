@@ -39,7 +39,37 @@ const FinanceManagement = () => {
   const [tablesMissing, setTablesMissing] = useState(false)
   const [useCredits, setUseCredits] = useState(false)
   const [creditsToUse, setCreditsToUse] = useState('')
+  const [stats, setStats] = useState({ totalPassengers: 0, totalAmount: 0, totalPaid: 0, totalOverdue: 0 })
   const { toast } = useToast()
+
+  const loadStats = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_financial_dashboard_metrics', {
+        p_excursao_id: selectedExcursionId ? selectedExcursionId : null,
+        p_onibus_id: selectedBusId ? selectedBusId : null
+      })
+      
+      if (error) {
+        console.error('Erro RPC stats:', error)
+        return
+      }
+
+      if (data && data.length > 0) {
+        setStats({
+          totalPassengers: Number(data[0].total_passengers || 0),
+          totalAmount: Number(data[0].total_amount || 0),
+          totalPaid: Number(data[0].paid_amount || 0),
+          totalOverdue: Number(data[0].overdue_amount || 0)
+        })
+      }
+    } catch (err) {
+      console.error('Erro ao carregar stats:', err)
+    }
+  }
+
+  useEffect(() => {
+    loadStats()
+  }, [selectedExcursionId, selectedBusId])
 
   const normalizeText = (s) => (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const formatDate = (dateStr) => {
@@ -118,7 +148,7 @@ const FinanceManagement = () => {
         `)
         .neq('status', 'cancelada')
         .order('criado_em', { ascending: false })
-        .limit(200)
+
 
       if (selectedExcursionId) {
         query = query.eq('excursao_id', selectedExcursionId)
@@ -987,17 +1017,6 @@ const FinanceManagement = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-3 md:mb-4">
         {
           (() => {
-            let totalAmount = 0
-            let totalPaid = 0
-            let totalOverdue = 0
-            
-            allFilteredPassengers.forEach(p => {
-              if (p.isGuide) return
-              totalAmount += Number(p.totalAmount || 0)
-              totalPaid += Number(p.paidAmount || 0)
-              totalOverdue += Number(p.overdueAmount || 0)
-            })
-
             const fmt = (n) => (Number(n || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
             const pct = (part, whole) => {
               const w = Number(whole || 0)
@@ -1009,24 +1028,24 @@ const FinanceManagement = () => {
               <>
                 <div className="bg-white/5 rounded-xl p-3 md:p-4 border border-white/10">
                   <p className="text-white/70 text-xs sm:text-sm">Total de Passageiros</p>
-                  <p className="text-white text-lg sm:text-xl font-bold">{allFilteredPassengers.length}</p>
+                  <p className="text-white text-lg sm:text-xl font-bold">{stats.totalPassengers}</p>
                 </div>
                 <div className="bg-white/5 rounded-xl p-3 md:p-4 border border-white/10">
                   <p className="text-white/70 text-xs sm:text-sm">Valor Total</p>
-                  <p className="text-white text-lg sm:text-xl font-bold">{fmt(totalAmount)}</p>
+                  <p className="text-white text-lg sm:text-xl font-bold">{fmt(stats.totalAmount)}</p>
                 </div>
                 <div className="bg-white/5 rounded-xl p-3 md:p-4 border border-white/10">
                   <p className="text-white/70 text-xs sm:text-sm">Valor Total Pago</p>
                   <div className="flex items-baseline justify-between">
-                    <p className="text-white text-lg sm:text-xl font-bold">{fmt(totalPaid)}</p>
-                    <p className="text-white/80 text-sm sm:text-base font-semibold">{pct(totalPaid, totalAmount)}</p>
+                    <p className="text-white text-lg sm:text-xl font-bold">{fmt(stats.totalPaid)}</p>
+                    <p className="text-white/80 text-sm sm:text-base font-semibold">{pct(stats.totalPaid, stats.totalAmount)}</p>
                   </div>
                 </div>
                 <div className="bg-white/5 rounded-xl p-3 md:p-4 border border-white/10">
                   <p className="text-white/70 text-xs sm:text-sm">Valor Inadimplente</p>
                   <div className="flex items-baseline justify-between">
-                    <p className="text-white text-lg sm:text-xl font-bold">{fmt(totalOverdue)}</p>
-                    <p className="text-white/80 text-sm sm:text-base font-semibold">{pct(totalOverdue, totalAmount)}</p>
+                    <p className="text-white text-lg sm:text-xl font-bold">{fmt(stats.totalOverdue)}</p>
+                    <p className="text-white/80 text-sm sm:text-base font-semibold">{pct(stats.totalOverdue, stats.totalAmount)}</p>
                   </div>
                 </div>
               </>
@@ -1034,6 +1053,7 @@ const FinanceManagement = () => {
           })()
         }
       </div>
+
 
       {allFilteredPassengers.length === 0 ? (
         <div className="bg-white/5 rounded-xl p-6 md:p-12 text-center">
