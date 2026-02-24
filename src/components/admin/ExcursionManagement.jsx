@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Trash2, Edit, CheckCircle, Send } from 'lucide-react';
+import { Plus, Trash2, Edit, CheckCircle, Send, Filter } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase'
 
@@ -31,8 +32,9 @@ const ExcursionManagement = () => {
   const [retDateBR, setRetDateBR] = useState('')
   const [retTimeHM, setRetTimeHM] = useState('')
   const { toast } = useToast();
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmCancelId, setConfirmCancelId] = useState(null);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('active');
   
   // Status and Feedback states
   const [completeExcursionId, setCompleteExcursionId] = useState(null);
@@ -259,21 +261,37 @@ const ExcursionManagement = () => {
     setIsAdding(true);
   };
 
-  const requestDelete = (id) => {
-    setConfirmDeleteId(id)
-    setConfirmOpen(true)
+  const requestCancel = (id) => {
+    setConfirmCancelId(id)
+    setConfirmCancelOpen(true)
   };
 
-  const handleDelete = async () => {
-    if (!confirmDeleteId) return
-    await supabase.from('excursoes').delete().eq('id', confirmDeleteId)
-    await loadExcursions()
-    toast({
-      title: "Excursão Excluída",
-      description: "A excursão foi removida.",
-    });
-    setConfirmOpen(false)
-    setConfirmDeleteId(null)
+  const handleCancelExcursion = async () => {
+    if (!confirmCancelId) return
+    try {
+      const { error } = await supabase
+        .from('excursoes')
+        .update({ status: 'cancelled' })
+        .eq('id', confirmCancelId);
+
+      if (error) throw error;
+
+      await loadExcursions()
+      toast({
+        title: "Excursão Cancelada",
+        description: "O status da excursão foi alterado para cancelado.",
+      });
+    } catch (err) {
+      console.error('Error cancelling excursion:', err);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível cancelar a excursão.",
+      });
+    } finally {
+      setConfirmCancelOpen(false)
+      setConfirmCancelId(null)
+    }
   };
 
   const requestComplete = (id) => {
@@ -379,8 +397,26 @@ const ExcursionManagement = () => {
     <div className="space-y-6">
       {!isAdding ? (
         <>
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-white">Excursões</h2>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <h2 className="text-2xl font-bold text-white">Excursões</h2>
+              <div className="w-48">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-4 w-4" />
+                      <SelectValue placeholder="Status" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#0F172A] border-white/20 text-white">
+                    <SelectItem value="all">Todos os Status</SelectItem>
+                    <SelectItem value="active">Ativas</SelectItem>
+                    <SelectItem value="completed">Concluídas</SelectItem>
+                    <SelectItem value="cancelled">Canceladas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <Button
               onClick={() => {
                 setEditingId(null);
@@ -413,13 +449,19 @@ const ExcursionManagement = () => {
             </div>
           ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {excursions.map((excursion, index) => (
+              {excursions
+                .filter(excursion => statusFilter === 'all' || excursion.status === statusFilter)
+                .map((excursion, index) => (
                 <motion.div
                   key={excursion.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className={`bg-white/5 rounded-xl p-4 border ${excursion.status === 'completed' ? 'border-green-500/50' : 'border-white/10'}`}
+                  className={`bg-white/5 rounded-xl p-4 border ${
+                    excursion.status === 'completed' ? 'border-green-500/50' : 
+                    excursion.status === 'cancelled' ? 'border-red-500/50' : 
+                    'border-white/10'
+                  }`}
                 >
                   {excursion.image && (
                     <img
@@ -430,11 +472,18 @@ const ExcursionManagement = () => {
                   )}
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="text-lg font-bold text-white">{excursion.name}</h3>
-                    {excursion.status === 'completed' && (
-                      <span className="bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-full font-bold border border-green-500/30">
-                        Concluída
-                      </span>
-                    )}
+                    <div className="flex gap-2">
+                      {excursion.status === 'completed' && (
+                        <span className="bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-full font-bold border border-green-500/30">
+                          Concluída
+                        </span>
+                      )}
+                      {excursion.status === 'cancelled' && (
+                        <span className="bg-red-500/20 text-red-400 text-xs px-2 py-1 rounded-full font-bold border border-red-500/30">
+                          Cancelada
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="text-white/70 text-sm mb-2 line-clamp-2">{excursion.description}</p>
                   <div className="flex items-center justify-between mb-3">
@@ -452,25 +501,27 @@ const ExcursionManagement = () => {
                       Editar
                     </Button>
                     
-                    {excursion.status !== 'completed' && (
-                      <Button
-                        onClick={() => requestComplete(excursion.id)}
-                        size="sm"
-                        className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Concluir
-                      </Button>
+                    {excursion.status === 'active' && (
+                      <>
+                        <Button
+                          onClick={() => requestComplete(excursion.id)}
+                          size="sm"
+                          className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Concluir
+                        </Button>
+                        
+                        <Button
+                          onClick={() => requestCancel(excursion.id)}
+                          size="sm"
+                          className="flex-1 bg-white text-red-600 border border-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Cancelar
+                        </Button>
+                      </>
                     )}
-                    
-                    <Button
-                      onClick={() => requestDelete(excursion.id)}
-                      size="sm"
-                      className="flex-1 bg-white text-red-600 border border-red-600 hover:bg-red-50"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Excluir
-                    </Button>
                   </div>
                 </motion.div>
               ))}
@@ -712,18 +763,18 @@ City Tour em Recife e Olinda."
         </motion.div>
       )}
       
-      {/* Delete Confirmation Modal */}
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      {/* Cancel Confirmation Modal */}
+      <Dialog open={confirmCancelOpen} onOpenChange={setConfirmCancelOpen}>
         <DialogContent className="bg-[#0F172A] text-white">
           <DialogHeader>
-            <DialogTitle className="text-base sm:text-lg">Confirmar exclusão</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg">Confirmar cancelamento</DialogTitle>
             <DialogDescription className="text-white/80 text-sm">
-              Essa ação não pode ser desfeita. Tem certeza que deseja excluir esta excursão?
+              Essa ação irá alterar o status da excursão para cancelada. Tem certeza que deseja continuar?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row gap-2 sm:gap-2">
-            <Button onClick={() => setConfirmOpen(false)} className="flex-1 bg-white text-[#0F172A] hover:bg-gray-100 text-sm sm:text-base">Cancelar</Button>
-            <Button onClick={handleDelete} className="flex-1 bg-red-600 text-white hover:bg-red-700 text-sm sm:text-base">Confirmar exclusão</Button>
+            <Button onClick={() => setConfirmCancelOpen(false)} className="flex-1 bg-white text-[#0F172A] hover:bg-gray-100 text-sm sm:text-base">Voltar</Button>
+            <Button onClick={handleCancelExcursion} className="flex-1 bg-red-600 text-white hover:bg-red-700 text-sm sm:text-base">Confirmar Cancelamento</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
