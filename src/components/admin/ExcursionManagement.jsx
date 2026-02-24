@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Trash2, Edit, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Edit, CheckCircle, Send } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase'
 
@@ -33,6 +33,12 @@ const ExcursionManagement = () => {
   const { toast } = useToast();
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  
+  // Status and Feedback states
+  const [completeExcursionId, setCompleteExcursionId] = useState(null);
+  const [completeModalOpen, setCompleteModalOpen] = useState(false);
+  const [surveyModalOpen, setSurveyModalOpen] = useState(false);
+  const [sendingSurvey, setSendingSurvey] = useState(false);
 
   const defaultPaymentTerms = "VALOR DE ENTRADA: R$100,00 + 5 parcelas de R$160,00";
   const defaultInclusions = "Hospedagem em Porto de Galinhas (2 diárias).\n2 café da manhã.\nTransporte em ônibus executivo.\nGuia Regional.\nServiço de bordo.\nBrinde Premium individual.\nSorteio de Brindes.\nTranslado até Maragogi.\nCity Tour em Recife e Olinda.";
@@ -133,7 +139,8 @@ const ExcursionManagement = () => {
       inclusions: row.incluso || '',
       duration: row.duracao,
       price: Number(row.preco),
-      image: row.imagem_url || ''
+      image: row.imagem_url || '',
+      status: row.status || 'active'
     }))
     setExcursions(mapped)
   };
@@ -205,6 +212,7 @@ const ExcursionManagement = () => {
           incluso: formData.inclusions,
           duracao: formData.duration,
           preco: parseFloat(formData.price),
+          status: 'active'
         })
         .select('id')
         .single()
@@ -266,6 +274,84 @@ const ExcursionManagement = () => {
     });
     setConfirmOpen(false)
     setConfirmDeleteId(null)
+  };
+
+  const requestComplete = (id) => {
+    setCompleteExcursionId(id);
+    setCompleteModalOpen(true);
+  };
+
+  const handleCompleteExcursion = async () => {
+    if (!completeExcursionId) return;
+
+    try {
+      const { error } = await supabase
+        .from('excursoes')
+        .update({ status: 'completed' })
+        .eq('id', completeExcursionId);
+
+      if (error) throw error;
+
+      await loadExcursions();
+      setCompleteModalOpen(false);
+      setSurveyModalOpen(true); // Open the next modal to ask about survey
+      
+      toast({
+        title: "Excursão Concluída",
+        description: "Status atualizado para concluído.",
+      });
+    } catch (err) {
+      console.error('Error completing excursion:', err);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível atualizar o status da excursão.",
+      });
+    }
+  };
+
+  const handleSendSurvey = async () => {
+    if (!completeExcursionId) return;
+
+    try {
+      setSendingSurvey(true);
+      
+      // Call n8n webhook
+      const webhookUrl = `https://n8n-n8n.j6kpgx.easypanel.host/webhook/feedback`;
+      
+      // Using fetch with POST as standard for webhooks, passing ID in body
+      // If the user specifically asked for GET or query params, we could adjust.
+      // But standard webhook trigger usually expects POST body.
+      // Based on prompt "passando o id da excursão", I'll send JSON body.
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ excursion_id: completeExcursionId }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Webhook failed: ${response.statusText}`);
+      }
+
+      toast({
+        title: "Pesquisa Disparada",
+        description: "A solicitação de envio foi processada com sucesso.",
+        className: "bg-green-500 text-white border-none"
+      });
+    } catch (err) {
+      console.error('Error sending survey:', err);
+      toast({
+        variant: "destructive",
+        title: "Erro no envio",
+        description: "Falha ao disparar o webhook de pesquisa.",
+      });
+    } finally {
+      setSendingSurvey(false);
+      setSurveyModalOpen(false);
+      setCompleteExcursionId(null);
+    }
   };
 
   const handleCancel = () => {
@@ -333,7 +419,7 @@ const ExcursionManagement = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="bg-white/5 rounded-xl p-4 border border-white/10"
+                  className={`bg-white/5 rounded-xl p-4 border ${excursion.status === 'completed' ? 'border-green-500/50' : 'border-white/10'}`}
                 >
                   {excursion.image && (
                     <img
@@ -342,21 +428,41 @@ const ExcursionManagement = () => {
                       className="w-full h-32 object-cover rounded-lg mb-3"
                     />
                   )}
-                  <h3 className="text-lg font-bold text-white mb-2">{excursion.name}</h3>
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-lg font-bold text-white">{excursion.name}</h3>
+                    {excursion.status === 'completed' && (
+                      <span className="bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-full font-bold border border-green-500/30">
+                        Concluída
+                      </span>
+                    )}
+                  </div>
                   <p className="text-white/70 text-sm mb-2 line-clamp-2">{excursion.description}</p>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[#ECAE62] font-bold">R${excursion.price}</span>
                     <span className="text-white/60 text-sm">{formatDate(excursion.date)}</span>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Button
                       onClick={() => handleEdit(excursion)}
                       size="sm"
-                      className="flex-1 bg-[#ECAE62] hover:bg-[#8C641C] text-white"
+                      variant="secondary"
+                      className="flex-1 bg-white/10 hover:bg-white/20 text-white border-none"
                     >
                       <Edit className="mr-2 h-4 w-4" />
                       Editar
                     </Button>
+                    
+                    {excursion.status !== 'completed' && (
+                      <Button
+                        onClick={() => requestComplete(excursion.id)}
+                        size="sm"
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Concluir
+                      </Button>
+                    )}
+                    
                     <Button
                       onClick={() => requestDelete(excursion.id)}
                       size="sm"
@@ -605,6 +711,8 @@ City Tour em Recife e Olinda."
           </form>
         </motion.div>
       )}
+      
+      {/* Delete Confirmation Modal */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="bg-[#0F172A] text-white">
           <DialogHeader>
@@ -616,6 +724,57 @@ City Tour em Recife e Olinda."
           <DialogFooter className="flex-row gap-2 sm:gap-2">
             <Button onClick={() => setConfirmOpen(false)} className="flex-1 bg-white text-[#0F172A] hover:bg-gray-100 text-sm sm:text-base">Cancelar</Button>
             <Button onClick={handleDelete} className="flex-1 bg-red-600 text-white hover:bg-red-700 text-sm sm:text-base">Confirmar exclusão</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Complete Excursion Confirmation Modal */}
+      <Dialog open={completeModalOpen} onOpenChange={setCompleteModalOpen}>
+        <DialogContent className="bg-[#0F172A] text-white">
+          <DialogHeader>
+            <DialogTitle className="text-base sm:text-lg">Marcar como Concluída</DialogTitle>
+            <DialogDescription className="text-white/80 text-sm">
+              Ao marcar a excursão como concluída, ela será finalizada no sistema. Deseja continuar?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row gap-2 sm:gap-2">
+            <Button onClick={() => setCompleteModalOpen(false)} className="flex-1 bg-white text-[#0F172A] hover:bg-gray-100">Cancelar</Button>
+            <Button onClick={handleCompleteExcursion} className="flex-1 bg-green-600 hover:bg-green-700 text-white">Confirmar Conclusão</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Survey Confirmation Modal */}
+      <Dialog open={surveyModalOpen} onOpenChange={setSurveyModalOpen}>
+        <DialogContent className="bg-[#0F172A] text-white border border-white/20">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-[#ECAE62] flex items-center gap-2">
+              <Send className="h-5 w-5" />
+              Disparar Pesquisa de Satisfação?
+            </DialogTitle>
+            <DialogDescription className="text-gray-300 pt-2">
+              A excursão foi marcada como concluída com sucesso! 🎉
+              <br/><br/>
+              Deseja enviar automaticamente a pesquisa de satisfação para todos os passageiros via WhatsApp/Email agora?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-row gap-3 mt-4">
+            <Button 
+              onClick={() => {
+                setSurveyModalOpen(false);
+                setCompleteExcursionId(null);
+              }} 
+              className="flex-1 bg-white text-[#0F172A] hover:bg-gray-100"
+            >
+              Agora não
+            </Button>
+            <Button 
+              onClick={handleSendSurvey} 
+              disabled={sendingSurvey}
+              className="flex-1 bg-[#ECAE62] hover:bg-[#8C641C] text-[#0B1420] font-bold"
+            >
+              {sendingSurvey ? "Enviando..." : "Sim, disparar pesquisa"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
