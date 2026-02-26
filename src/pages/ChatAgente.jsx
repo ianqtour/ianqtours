@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, Square, Bot, User, Play, Pause, Volume2, Trash2, Sparkles, MessageSquare, Shield, Zap } from 'lucide-react';
+import { Send, Mic, Square, Bot, User, Play, Pause, Volume2, Trash2, Sparkles, MessageSquare, Shield, Zap, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -96,6 +97,7 @@ const AudioPlayer = ({ src, isUser }) => {
 };
 
 const ChatAgente = () => {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : [];
@@ -253,6 +255,14 @@ const ChatAgente = () => {
       {/* Header */}
       <header className="relative z-30 bg-slate-950/50 backdrop-blur-xl border-b border-white/5 p-4 sm:px-6 flex items-center justify-between shadow-2xl">
         <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => navigate('/admin')}
+            className="h-10 w-10 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-all active:scale-95"
+          >
+            <ArrowLeft size={20} />
+          </Button>
           <Avatar.Root className="relative flex h-12 w-12 shrink-0 overflow-hidden rounded-2xl ring-0 border border-white/5">
             <Avatar.Image 
               src="https://ujowugielrmzvmwqenhb.supabase.co/storage/v1/object/public/excursoes/logo-ianq.png" 

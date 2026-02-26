@@ -8,6 +8,7 @@ import ExcursionsList from '@/pages/ExcursionsList';
 import MeusIngressos from '@/pages/MeusIngressos';
 import FeedbackPage from '@/pages/FeedbackPage';
 import ChatAgente from '@/pages/ChatAgente';
+import Dashboard from '@/pages/Dashboard';
 import ProtectedRoute from '@/lib/ProtectedRoute';
 import { Toaster } from '@/components/ui/toaster';
 
@@ -41,6 +42,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ChatAgente />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/dash" 
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
                 </ProtectedRoute>
               } 
             />
