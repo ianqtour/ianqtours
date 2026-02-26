@@ -5,7 +5,8 @@ import {
   TrendingUp, Users, AlertCircle, DollarSign, Star, 
   ArrowUpRight, ArrowDownRight, Calendar, Filter,
   Search, ChevronDown, Download, MoreHorizontal, ArrowLeft,
-  PieChart as PieChartIcon, BarChart3, LineChart as LineChartIcon
+  PieChart as PieChartIcon, BarChart3, LineChart as LineChartIcon,
+  Maximize2, Minimize2, Cake
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
@@ -58,7 +59,12 @@ const Dashboard = () => {
   const [excursionFilter, setExcursionFilter] = useState('all');
   const [projectionInterval, setProjectionInterval] = useState('monthly'); // 'daily', 'weekly', 'monthly'
   const [allInstallments, setAllInstallments] = useState([]);
+  const [allFeedbacks, setAllFeedbacks] = useState([]);
+  const [allPassengers, setAllPassengers] = useState([]);
+  const [birthdays, setBirthdays] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [birthdayPage, setBirthdayPage] = useState(1);
+  const [expandedChart, setExpandedChart] = useState(null); // 'comparison' or 'projection'
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -66,8 +72,8 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    updateProjectionData(allInstallments, projectionInterval);
-  }, [projectionInterval, allInstallments]);
+    processData();
+  }, [allInstallments, allFeedbacks, allPassengers, excursionFilter, projectionInterval]);
 
   useEffect(() => {
     let filtered = tableData;
@@ -80,58 +86,206 @@ const Dashboard = () => {
     if (statusFilter !== 'all') {
       filtered = filtered.filter(item => item.status === statusFilter);
     }
-    if (excursionFilter !== 'all') {
-      filtered = filtered.filter(item => item.excursionName === excursionFilter);
-    }
+    // O filtro de excursão agora é global e já filtra o tableData no processData
     setFilteredTableData(filtered);
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, excursionFilter, tableData]);
+  }, [searchTerm, statusFilter, tableData]);
 
   const uniqueExcursions = Array.from(new Set(allInstallments.map(i => i.excursao_nome))).filter(Boolean).sort();
 
-  const updateProjectionData = (installments, interval) => {
-    const now = new Date();
-    let projectionData = [];
+  const processData = () => {
+    let filteredInsts = allInstallments || [];
+    let filteredFeedbacks = allFeedbacks || [];
 
-    if (interval === 'daily') {
-      const next14Days = eachDayOfInterval({
-        start: now,
-        end: addDays(now, 13)
-      });
-      projectionData = next14Days.map(day => {
-        const dayStr = format(day, 'dd/MM', { locale: ptBR });
-        const amount = installments
-          .filter(i => isSameDay(parseISO(i.vencimento), day) && i.status !== 'pago')
-          .reduce((acc, i) => acc + Number(i.valor), 0);
-        return { name: dayStr, valor: amount };
-      });
-    } else if (interval === 'weekly') {
-      const next12Weeks = eachWeekOfInterval({
-        start: now,
-        end: addWeeks(now, 11)
-      });
-      projectionData = next12Weeks.map(week => {
-        const weekStr = `Sem ${format(week, 'ww', { locale: ptBR })}`;
-        const amount = installments
-          .filter(i => isSameWeek(parseISO(i.vencimento), week) && i.status !== 'pago')
-          .reduce((acc, i) => acc + Number(i.valor), 0);
-        return { name: weekStr, valor: amount };
-      });
-    } else {
-      const next6Months = eachMonthOfInterval({
-        start: now,
-        end: subMonths(now, -5)
-      });
-      projectionData = next6Months.map(month => {
-        const monthStr = format(month, 'MMM/yy', { locale: ptBR });
-        const amount = installments
-          .filter(i => isSameMonth(parseISO(i.vencimento), month) && i.status !== 'pago')
-          .reduce((acc, i) => acc + Number(i.valor), 0);
-        return { name: monthStr, valor: amount };
-      });
+    if (excursionFilter !== 'all') {
+      filteredInsts = (allInstallments || []).filter(i => i.excursao_nome === excursionFilter);
+      filteredFeedbacks = (allFeedbacks || []).filter(f => f.excursoes?.nome === excursionFilter);
     }
 
-    setChartsData(prev => ({ ...prev, cashProjection: projectionData }));
+    const now = new Date();
+
+    // 1. Process Metrics
+    const overdueInsts = filteredInsts.filter(i => i.status === 'atrasado');
+    const overdueAmount = overdueInsts.reduce((acc, i) => acc + Number(i.valor), 0);
+    const overduePaxIds = new Set(overdueInsts.map(i => i.plano_id));
+    
+    // Unique passengers in filtered set
+    const uniquePaxIds = new Set(filteredInsts.map(i => i.plano_id));
+
+    // NPS Calculation
+    let promoters = 0, neutrals = 0, detractors = 0;
+    filteredFeedbacks?.forEach(f => {
+      if (f.rating === 5) promoters++;
+      else if (f.rating === 4) neutrals++;
+      else detractors++;
+    });
+    const totalFeedbacks = filteredFeedbacks?.length || 0;
+    const npsScore = totalFeedbacks > 0 
+      ? Math.round(((promoters - detractors) / totalFeedbacks) * 100) 
+      : 0;
+
+    setStats({
+      totalExcursions: excursionFilter === 'all' ? Array.from(new Set(allInstallments.map(i => i.excursao_nome))).length : 1,
+      totalPassengers: uniquePaxIds.size,
+      totalOverdueClients: overduePaxIds.size,
+      totalOverdueAmount: overdueAmount,
+      npsScore,
+      npsDistribution: { promoters, neutrals, detractors }
+    });
+
+    // 2. Process Chart Data (Monthly Comparison)
+    const last12Months = eachMonthOfInterval({
+      start: subMonths(now, 11),
+      end: now
+    });
+
+    const allMonthlyData = last12Months.map(month => {
+      const monthStr = format(month, 'MMM/yy', { locale: ptBR });
+      const monthInsts = filteredInsts.filter(i => isSameMonth(parseISO(i.vencimento), month));
+      
+      const received = monthInsts.filter(i => i.status === 'pago').reduce((acc, i) => acc + Number(i.valor), 0);
+      const toReceive = monthInsts.filter(i => i.status === 'pendente' || i.status === 'atrasado').reduce((acc, i) => acc + Number(i.valor), 0);
+      const overdue = monthInsts.filter(i => i.status === 'atrasado').reduce((acc, i) => acc + Number(i.valor), 0);
+
+      return {
+        name: monthStr,
+        recebido: received,
+        aReceber: toReceive,
+        atrasado: overdue,
+        total: received + toReceive + overdue
+      };
+    });
+
+    const filteredMonthlyData = allMonthlyData.filter(d => d.total > 0);
+
+    // 3. Payment Methods
+    const methods = {};
+    filteredInsts.filter(i => i.status === 'pago').forEach(i => {
+      const m = i.metodo || 'Outros';
+      if (!methods[m]) methods[m] = { count: 0, value: 0 };
+      methods[m].count += 1;
+      methods[m].value += Number(i.valor);
+    });
+    const paymentMethodsData = Object.entries(methods).map(([name, data]) => ({ 
+      name, 
+      count: data.count, 
+      value: data.value 
+    }));
+
+    // 4. Status Distribution
+    const getStatusData = (status) => {
+      const filtered = filteredInsts.filter(i => i.status === (status === 'recebido' ? 'pago' : status === 'aReceber' ? 'pendente' : 'atrasado'));
+      return {
+        count: filtered.length,
+        value: filtered.reduce((acc, i) => acc + Number(i.valor), 0)
+      };
+    };
+
+    const statusDistribution = {
+      recebido: getStatusData('recebido'),
+      aReceber: getStatusData('aReceber'),
+      atrasado: getStatusData('atrasado')
+    };
+
+    // 5. Cash Projection
+    let projectionData = [];
+    if (projectionInterval === 'daily') {
+      const next14Days = eachDayOfInterval({ start: now, end: addDays(now, 13) });
+      projectionData = next14Days.map(day => {
+        const dayStr = format(day, 'dd/MM', { locale: ptBR });
+        const dayInsts = filteredInsts.filter(i => isSameDay(parseISO(i.vencimento), day));
+        
+        const previsto = dayInsts.reduce((acc, i) => acc + Number(i.valor), 0);
+        const realizado = dayInsts.filter(i => i.status === 'pago').reduce((acc, i) => acc + Number(i.valor), 0);
+        
+        return { name: dayStr, previsto, realizado };
+      }).filter(d => d.previsto > 0 || d.realizado > 0);
+    } else if (projectionInterval === 'weekly') {
+      const monthStart = startOfMonth(now);
+      const monthEnd = endOfMonth(now);
+      const weeks = eachWeekOfInterval({ start: monthStart, end: monthEnd });
+
+      projectionData = weeks.map((week, index) => {
+        const weekNum = index + 1;
+        const monthName = format(now, 'MMM', { locale: ptBR });
+        const cleanMonthName = monthName.charAt(0).toUpperCase() + monthName.slice(1).replace('.', '');
+        const label = `${weekNum}S-${cleanMonthName}`;
+        
+        const weekInsts = filteredInsts.filter(i => {
+          const dueDate = parseISO(i.vencimento);
+          return isSameWeek(dueDate, week) && isSameMonth(dueDate, now);
+        });
+
+        const previsto = weekInsts.reduce((acc, i) => acc + Number(i.valor), 0);
+        const realizado = weekInsts.filter(i => i.status === 'pago').reduce((acc, i) => acc + Number(i.valor), 0);
+
+        return { name: label, previsto, realizado };
+      }).filter(d => d.previsto > 0 || d.realizado > 0);
+    } else {
+      const next6Months = eachMonthOfInterval({ start: now, end: subMonths(now, -5) });
+      projectionData = next6Months.map(month => {
+        const monthStr = format(month, 'MMM/yy', { locale: ptBR });
+        const monthInsts = filteredInsts.filter(i => isSameMonth(parseISO(i.vencimento), month));
+        
+        const previsto = monthInsts.reduce((acc, i) => acc + Number(i.valor), 0);
+        const realizado = monthInsts.filter(i => i.status === 'pago').reduce((acc, i) => acc + Number(i.valor), 0);
+
+        return { name: monthStr, previsto, realizado };
+      }).filter(d => d.previsto > 0 || d.realizado > 0);
+    }
+
+    setChartsData({
+      cashProjection: projectionData,
+      monthlyComparison: filteredMonthlyData,
+      installmentsStatus: [
+        { name: 'Recebido', count: statusDistribution.recebido.count, value: statusDistribution.recebido.value },
+        { name: 'Pendente', count: statusDistribution.aReceber.count, value: statusDistribution.aReceber.value },
+        { name: 'Atrasado', count: statusDistribution.atrasado.count, value: statusDistribution.atrasado.value }
+      ],
+      overdueByMonth: filteredMonthlyData.map(d => ({ name: d.name, valor: d.atrasado })),
+      paymentMethods: paymentMethodsData
+    });
+
+    // 6. Table Data
+    const formattedTable = filteredInsts.map(i => ({
+      id: i.installment_id,
+      excursionName: i.excursao_nome || 'N/A',
+      passengerName: i.passageiro_nome || 'N/A',
+      installment: i.numero_parcela,
+      value: Number(i.valor),
+      dueDate: i.vencimento,
+      status: i.status
+    })).sort((a, b) => parseISO(b.dueDate) - parseISO(a.dueDate));
+
+    setTableData(formattedTable);
+
+    // 7. Birthdays Logic
+    let birthdayList = [];
+    allPassengers.forEach(plan => {
+      const p = plan.passageiros;
+      const ex = plan.excursoes;
+      if (p && ex && p.data_nascimento && ex.horario_partida) {
+        const birthDate = parseISO(p.data_nascimento);
+        const excursionDate = parseISO(ex.horario_partida);
+        
+        // Match month only
+        if (birthDate.getMonth() === excursionDate.getMonth()) {
+          
+          birthdayList.push({
+            id: p.id,
+            name: p.nome,
+            excursionName: ex.nome,
+            birthDate: p.data_nascimento
+          });
+        }
+      }
+    });
+
+    if (excursionFilter !== 'all') {
+      birthdayList = birthdayList.filter(b => b.excursionName === excursionFilter);
+    }
+    setBirthdays(birthdayList);
+    setBirthdayPage(1);
   };
 
   const exportToExcel = () => {
@@ -157,115 +311,52 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Totals
-      const { count: excCount } = await supabase.from('excursoes').select('*', { count: 'exact', head: true });
-      const { count: paxCount } = await supabase.from('passageiros').select('*', { count: 'exact', head: true });
-      
-      // 2. Fetch Installments from View for metrics and charts
+      // 1. Fetch Installments from View
       const { data: installments, error: instError } = await supabase
         .from('vw_finance_installments_to_collect')
         .select('*');
 
       if (instError) throw instError;
-      setAllInstallments(installments);
+      setAllInstallments(installments || []);
 
-      // 3. Fetch Feedbacks for NPS
-      const { data: feedbacks } = await supabase.from('feedbacks').select('rating');
+      // 2. Fetch Feedbacks for NPS
+      const { data: feedbacks } = await supabase
+        .from('feedbacks')
+        .select('rating, excursoes(nome)');
+      setAllFeedbacks(feedbacks || []);
 
-      // Process Metrics
-      const now = new Date();
-      const overdueInsts = installments.filter(i => i.status === 'atrasado');
-      const overdueAmount = overdueInsts.reduce((acc, i) => acc + Number(i.valor), 0);
-      const overduePaxIds = new Set(overdueInsts.map(i => i.plano_id));
+      // 3. Fetch Passenger Birthdays via Reservation Passengers
+      // We need data_nascimento for ALL passengers in ALL reservations
+      const { data: paxReservas, error: paxError } = await supabase
+        .from('passageiros_reserva')
+        .select(`
+          passageiro_id,
+          passageiros (
+            id,
+            nome,
+            data_nascimento
+          ),
+          reservas (
+            id,
+            excursoes (
+              id,
+              nome,
+              horario_partida
+            )
+          )
+        `)
+        .not('reservas.status', 'eq', 'cancelada');
+      
+      if (paxError) throw paxError;
+      
+      // Flatten the structure for easier processing
+      const flattenedPassengers = paxReservas?.map(pr => ({
+        id: pr.passageiro_id,
+        passageiros: pr.passageiros,
+        excursoes: pr.reservas?.excursoes
+      })) || [];
 
-      // NPS Calculation (mapping 1-5 to standard NPS promoters/detractors)
-      let promoters = 0, neutrals = 0, detractors = 0;
-      feedbacks?.forEach(f => {
-        if (f.rating === 5) promoters++;
-        else if (f.rating === 4) neutrals++;
-        else detractors++;
-      });
-      const totalFeedbacks = feedbacks?.length || 0;
-      const npsScore = totalFeedbacks > 0 
-        ? Math.round(((promoters - detractors) / totalFeedbacks) * 100) 
-        : 0;
-
-      setStats({
-        totalExcursions: excCount || 0,
-        totalPassengers: paxCount || 0,
-        totalOverdueClients: overduePaxIds.size,
-        totalOverdueAmount: overdueAmount,
-        npsScore,
-        npsDistribution: { promoters, neutrals, detractors }
-      });
-
-      // Process Chart Data
-      const last12Months = eachMonthOfInterval({
-        start: subMonths(now, 11),
-        end: now
-      });
-
-      const allMonthlyData = last12Months.map(month => {
-        const monthStr = format(month, 'MMM/yy', { locale: ptBR });
-        const monthInsts = installments.filter(i => isSameMonth(parseISO(i.vencimento), month));
-        
-        const received = monthInsts.filter(i => i.status === 'pago').reduce((acc, i) => acc + Number(i.valor), 0);
-        const toReceive = monthInsts.filter(i => i.status === 'pendente' || i.status === 'atrasado').reduce((acc, i) => acc + Number(i.valor), 0);
-        const overdue = monthInsts.filter(i => i.status === 'atrasado').reduce((acc, i) => acc + Number(i.valor), 0);
-
-        return {
-          name: monthStr,
-          recebido: received,
-          aReceber: toReceive,
-          atrasado: overdue,
-          total: received + toReceive + overdue
-        };
-      });
-
-      // Filtra para mostrar apenas meses que possuem algum valor (recebido, a receber ou atrasado)
-      const filteredMonthlyData = allMonthlyData.filter(d => d.total > 0);
-
-      // Payment Methods (Counting installments)
-      const methods = {};
-      installments.filter(i => i.status === 'pago').forEach(i => {
-        const m = i.metodo || 'Outros';
-        methods[m] = (methods[m] || 0) + 1;
-      });
-      const paymentMethodsData = Object.entries(methods).map(([name, value]) => ({ name, value }));
-
-      // Status Distribution
-      const statusCounts = {
-        recebido: installments.filter(i => i.status === 'pago').length,
-        aReceber: installments.filter(i => i.status === 'pendente').length,
-        atrasado: installments.filter(i => i.status === 'atrasado').length
-      };
-
-      setChartsData({
-        cashProjection: [], // Will be updated by updateProjectionData
-        monthlyComparison: filteredMonthlyData,
-        installmentsStatus: [
-          { name: 'Recebido', value: statusCounts.recebido },
-          { name: 'Pendente', value: statusCounts.aReceber },
-          { name: 'Atrasado', value: statusCounts.atrasado }
-        ],
-        overdueByMonth: filteredMonthlyData.map(d => ({ name: d.name, valor: d.atrasado })),
-        paymentMethods: paymentMethodsData
-      });
-
-      updateProjectionData(installments, projectionInterval);
-
-      // Process Table Data
-      const formattedTable = installments.map(i => ({
-        id: i.installment_id,
-        excursionName: i.excursao_nome || 'N/A',
-        passengerName: i.passageiro_nome || 'N/A',
-        installment: i.numero_parcela,
-        value: Number(i.valor),
-        dueDate: i.vencimento,
-        status: i.status
-      })).sort((a, b) => parseISO(b.dueDate) - parseISO(a.dueDate));
-
-      setTableData(formattedTable);
+      setAllPassengers(flattenedPassengers);
 
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -309,17 +400,33 @@ const Dashboard = () => {
               <p className="text-slate-400 font-medium">Visão geral do seu império de aventuras.</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Button onClick={fetchDashboardData} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10 text-white gap-2 rounded-xl">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Global Excursion Filter */}
+            <Select value={excursionFilter} onValueChange={setExcursionFilter}>
+              <SelectTrigger className="w-full sm:w-[240px] bg-white/5 border-white/10 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-300 focus:ring-[#25D366]/20 transition-all h-10">
+                <div className="flex items-center gap-2">
+                  <Filter size={14} className="text-[#25D366]" />
+                  <SelectValue placeholder="Todas as Excursões" />
+                </div>
+              </SelectTrigger>
+              <SelectContent className="bg-slate-900 border-white/10 text-slate-300">
+                <SelectItem value="all" className="text-[11px] font-bold uppercase tracking-widest focus:bg-[#25D366] focus:text-slate-950">Todas as Excursões</SelectItem>
+                {uniqueExcursions.map(name => (
+                  <SelectItem key={name} value={name} className="text-[11px] font-bold uppercase tracking-widest focus:bg-[#25D366] focus:text-slate-950">{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button onClick={fetchDashboardData} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10 text-white gap-2 rounded-xl h-10">
               <Calendar size={18} className="text-[#25D366]" />
               Atualizar Dados
             </Button>
             <Button 
               onClick={exportToExcel}
-              className="bg-[#25D366] hover:bg-[#1DA851] text-slate-950 font-bold gap-2 rounded-xl shadow-lg shadow-emerald-500/20"
+              className="bg-[#25D366] hover:bg-[#1DA851] text-slate-950 font-bold gap-2 rounded-xl shadow-lg shadow-emerald-500/20 h-10"
             >
               <Download size={18} />
-              Exportar Relatório
+              Exportar
             </Button>
           </div>
         </div>
@@ -334,24 +441,40 @@ const Dashboard = () => {
         </div>
 
         {/* Charts Grid - First Row (Main Comparison & Projection) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           {/* Main Comparison Chart */}
-          <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-2xl">
+          <motion.div 
+            layout
+            className={cn(
+              "bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-2xl transition-all duration-500",
+              expandedChart === 'comparison' ? "lg:col-span-2" : expandedChart === 'projection' ? "hidden" : ""
+            )}
+          >
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <BarChart3 size={20} className="text-[#25D366]" />
-                Recebido X A Receber (Mensal)
-              </h3>
-              <div className="flex gap-2">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-widest">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#25D366]" /> Recebido
-                </div>
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-widest">
-                  <div className="w-2.5 h-2.5 rounded-full bg-blue-500" /> A Receber
+              <div className="flex items-center gap-4">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <BarChart3 size={20} className="text-[#25D366]" />
+                  Recebido X A Receber (Mensal)
+                </h3>
+                <div className="flex gap-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-widest">
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#25D366]" /> Recebido
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-widest">
+                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500" /> A Receber
+                  </div>
                 </div>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setExpandedChart(expandedChart === 'comparison' ? null : 'comparison')}
+                className="h-8 w-8 rounded-lg text-slate-500 hover:text-[#25D366] hover:bg-[#25D366]/5 transition-all"
+              >
+                {expandedChart === 'comparison' ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              </Button>
             </div>
-            <div className="h-[300px] w-full">
+            <div className="h-[350px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={chartsData.monthlyComparison}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
@@ -366,43 +489,63 @@ const Dashboard = () => {
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </motion.div>
 
           {/* Cash Projection */}
-          <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-2xl">
+          <motion.div 
+            layout
+            className={cn(
+              "bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-2xl transition-all duration-500",
+              expandedChart === 'projection' ? "lg:col-span-2" : expandedChart === 'comparison' ? "hidden" : ""
+            )}
+          >
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <TrendingUp size={20} className="text-[#25D366]" />
-                Projeção de Caixa
-              </h3>
-              <div className="flex bg-white/5 p-1 rounded-xl">
-                {[
-                  { id: 'daily', label: 'Diário' },
-                  { id: 'weekly', label: 'Semanal' },
-                  { id: 'monthly', label: 'Mensal' }
-                ].map((interval) => (
-                  <button
-                    key={interval.id}
-                    onClick={() => setProjectionInterval(interval.id)}
-                    className={cn(
-                      "px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all",
-                      projectionInterval === interval.id 
-                        ? "bg-[#25D366] text-slate-950" 
-                        : "text-slate-400 hover:text-white"
-                    )}
-                  >
-                    {interval.label}
-                  </button>
-                ))}
+              <div className="flex items-center gap-4">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <TrendingUp size={20} className="text-[#25D366]" />
+                  Projeção de Caixa
+                </h3>
+                <div className="flex bg-white/5 p-1 rounded-xl">
+                  {[
+                    { id: 'daily', label: 'Diário' },
+                    { id: 'weekly', label: 'Semanal' },
+                    { id: 'monthly', label: 'Mensal' }
+                  ].map((interval) => (
+                    <button
+                      key={interval.id}
+                      onClick={() => setProjectionInterval(interval.id)}
+                      className={cn(
+                        "px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                        projectionInterval === interval.id 
+                          ? "bg-[#25D366] text-slate-950" 
+                          : "text-slate-400 hover:text-white"
+                      )}
+                    >
+                      {interval.label}
+                    </button>
+                  ))}
+                </div>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setExpandedChart(expandedChart === 'projection' ? null : 'projection')}
+                className="h-8 w-8 rounded-lg text-slate-500 hover:text-[#25D366] hover:bg-[#25D366]/5 transition-all"
+              >
+                {expandedChart === 'projection' ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              </Button>
             </div>
-            <div className="h-[300px] w-full">
+            <div className="h-[350px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartsData.cashProjection}>
                   <defs>
-                    <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#25D366" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#25D366" stopOpacity={0}/>
+                    <linearGradient id="colorPrev" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity="0.3"/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity="0"/>
+                    </linearGradient>
+                    <linearGradient id="colorReal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#25D366" stopOpacity="0.3"/>
+                      <stop offset="95%" stopColor="#25D366" stopOpacity="0"/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
@@ -410,13 +553,32 @@ const Dashboard = () => {
                   <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `R$${v/1000}k`} />
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '12px' }}
-                    itemStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#fff' }}
+                    itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                    formatter={(value) => [fmt(value), '']}
                   />
-                  <Area type="monotone" dataKey="valor" stroke="#25D366" fillOpacity={1} fill="url(#colorVal)" strokeWidth={3} />
+                  <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '20px' }} />
+                  <Area 
+                    name="Previsto"
+                    type="monotone" 
+                    dataKey="previsto" 
+                    stroke="#3b82f6" 
+                    fillOpacity={1} 
+                    fill="url(#colorPrev)" 
+                    strokeWidth={3} 
+                  />
+                  <Area 
+                    name="Realizado"
+                    type="monotone" 
+                    dataKey="realizado" 
+                    stroke="#25D366" 
+                    fillOpacity={1} 
+                    fill="url(#colorReal)" 
+                    strokeWidth={3} 
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* Charts Grid - Second Row (Secondary Metrics) */}
@@ -437,7 +599,7 @@ const Dashboard = () => {
                     innerRadius={60}
                     outerRadius={80}
                     paddingAngle={5}
-                    dataKey="value"
+                    dataKey="count"
                   >
                     {chartsData.paymentMethods.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -446,7 +608,10 @@ const Dashboard = () => {
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '12px' }}
                     itemStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#fff' }}
-                    formatter={(value) => [`${value} parcelas`, 'Quantidade']}
+                    formatter={(value, name, props) => {
+                      const { count, value: totalValue } = props.payload;
+                      return [`${count} parcelas (${fmt(totalValue)})`, 'Pagamentos'];
+                    }}
                   />
                   <Legend verticalAlign="bottom" align="center" iconType="circle" />
                 </PieChart>
@@ -469,8 +634,12 @@ const Dashboard = () => {
                     cursor={{fill: 'transparent'}}
                     contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '12px' }}
                     itemStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#fff' }}
+                    formatter={(value, name, props) => {
+                      const { count, value: totalValue } = props.payload;
+                      return [`${count} parcelas (${fmt(totalValue)})`, 'Status'];
+                    }}
                   />
-                  <Bar dataKey="value" fill="#25D366" radius={[0, 4, 4, 0]} barSize={30}>
+                  <Bar dataKey="count" fill="#25D366" radius={[0, 4, 4, 0]} barSize={30}>
                     {chartsData.installmentsStatus.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.name === 'Atrasado' ? '#ef4444' : entry.name === 'Pendente' ? '#3b82f6' : '#25D366'} />
                     ))}
@@ -547,22 +716,6 @@ const Dashboard = () => {
                   </button>
                 ))}
               </div>
-
-              {/* Excursion Dropdown Filter */}
-              <Select value={excursionFilter} onValueChange={setExcursionFilter}>
-                <SelectTrigger className="w-[200px] bg-white/5 border-white/10 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-300 focus:ring-[#25D366]/20 transition-all h-9">
-                  <div className="flex items-center gap-2">
-                    <Filter size={14} className="text-slate-500" />
-                    <SelectValue placeholder="Todas as Excursões" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent className="bg-slate-900 border-white/10 text-slate-300">
-                  <SelectItem value="all" className="text-[11px] font-bold uppercase tracking-widest focus:bg-[#25D366] focus:text-slate-950">Todas as Excursões</SelectItem>
-                  {uniqueExcursions.map(name => (
-                    <SelectItem key={name} value={name} className="text-[11px] font-bold uppercase tracking-widest focus:bg-[#25D366] focus:text-slate-950">{name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -662,6 +815,112 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Birthdays Table Section */}
+        {birthdays.length > 0 && (
+          <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+            <div className="p-6 border-b border-white/5 flex flex-col gap-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <Cake size={22} className="text-pink-500" />
+                  Aniversariantes na Excursão
+                </h3>
+                <span className="px-3 py-1 rounded-full bg-pink-500/10 text-pink-500 text-[10px] font-black uppercase tracking-widest border border-pink-500/20">
+                  {birthdays.length} Celebrações
+                </span>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-white/5 text-[11px] font-black uppercase tracking-widest text-slate-400">
+                  <tr>
+                    <th className="px-6 py-4">Excursão</th>
+                    <th className="px-6 py-4">Aniversariante</th>
+                    <th className="px-6 py-4">Data de Nascimento</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {birthdays.slice((birthdayPage - 1) * itemsPerPage, birthdayPage * itemsPerPage).map((b, index) => (
+                    <tr key={`${b.id}-${index}`} className="group hover:bg-white/[0.02] transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-bold text-sm text-white group-hover:text-pink-500 transition-colors">{b.excursionName}</div>
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-slate-300">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center text-pink-500 font-bold text-xs border border-pink-500/20">
+                            {b.name.charAt(0)}
+                          </div>
+                          {b.name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm font-mono text-slate-400">
+                        {format(parseISO(b.birthDate), 'dd/MM/yyyy')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Birthday Pagination Controls */}
+            <div className="p-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/[0.01]">
+              <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">
+                Mostrando {Math.min(birthdays.length, (birthdayPage - 1) * itemsPerPage + 1)} a {Math.min(birthdays.length, birthdayPage * itemsPerPage)} de {birthdays.length} celebrações
+              </div>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setBirthdayPage(prev => Math.max(1, prev - 1))}
+                  disabled={birthdayPage === 1}
+                  className="bg-white/5 border-white/10 hover:bg-white/10 text-xs font-bold uppercase tracking-widest rounded-xl disabled:opacity-20"
+                >
+                  Anterior
+                </Button>
+                
+                <div className="hidden sm:flex items-center gap-1">
+                  {Array.from({ length: Math.ceil(birthdays.length / itemsPerPage) }).map((_, i) => {
+                    const pageNum = i + 1;
+                    if (
+                      pageNum === 1 || 
+                      pageNum === Math.ceil(birthdays.length / itemsPerPage) ||
+                      (pageNum >= birthdayPage - 1 && pageNum <= birthdayPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setBirthdayPage(pageNum)}
+                          className={cn(
+                            "w-8 h-8 rounded-lg text-xs font-bold transition-all",
+                            birthdayPage === pageNum 
+                              ? "bg-pink-500 text-white shadow-lg shadow-pink-500/20" 
+                              : "bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+                          )}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    }
+                    if (pageNum === birthdayPage - 2 || pageNum === birthdayPage + 2) {
+                      return <span key={pageNum} className="text-slate-600 px-1">...</span>;
+                    }
+                    return null;
+                  })}
+                </div>
+
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setBirthdayPage(prev => prev + 1)}
+                  disabled={birthdayPage * itemsPerPage >= birthdays.length}
+                  className="bg-white/5 border-white/10 hover:bg-white/10 text-xs font-bold uppercase tracking-widest rounded-xl disabled:opacity-20"
+                >
+                  Próximo
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
