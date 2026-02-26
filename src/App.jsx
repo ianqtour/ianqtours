@@ -7,6 +7,7 @@ import ExcursionDetails from '@/pages/ExcursionDetails';
 import ExcursionsList from '@/pages/ExcursionsList';
 import MeusIngressos from '@/pages/MeusIngressos';
 import FeedbackPage from '@/pages/FeedbackPage';
+import ChatAgente from '@/pages/ChatAgente';
 import { Toaster } from '@/components/ui/toaster';
 
 function ScrollToTop() {
@@ -34,6 +35,7 @@ function App() {
             <Route path="/admin" element={<BookingPage />} />
             <Route path="/meus-ingressos" element={<MeusIngressos />} />
             <Route path="/pesquisa/:excursaoName/:cpf" element={<FeedbackPage />} />
+            <Route path="/chat" element={<ChatAgente />} />
           </Routes>
           <Toaster />
         </div>
