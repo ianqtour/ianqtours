@@ -87,7 +87,7 @@ const Dashboard = () => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, excursionFilter, tableData]);
 
-  const uniqueExcursions = Array.from(new Set(allInstallments.map(i => i.plano?.excursao?.nome))).filter(Boolean).sort();
+  const uniqueExcursions = Array.from(new Set(allInstallments.map(i => i.excursao_nome))).filter(Boolean).sort();
 
   const updateProjectionData = (installments, interval) => {
     const now = new Date();
@@ -161,17 +161,10 @@ const Dashboard = () => {
       const { count: excCount } = await supabase.from('excursoes').select('*', { count: 'exact', head: true });
       const { count: paxCount } = await supabase.from('passageiros').select('*', { count: 'exact', head: true });
       
-      // 2. Fetch Installments for metrics and charts
+      // 2. Fetch Installments from View for metrics and charts
       const { data: installments, error: instError } = await supabase
-        .from('finance_installments')
-        .select(`
-          *,
-          plano:finance_payment_plans (
-            excursao:excursoes (nome),
-            passageiro:passageiros (nome)
-          )
-        `)
-        .neq('status', 'cancelado');
+        .from('vw_finance_installments_to_collect')
+        .select('*');
 
       if (instError) throw instError;
       setAllInstallments(installments);
@@ -217,7 +210,7 @@ const Dashboard = () => {
         const monthInsts = installments.filter(i => isSameMonth(parseISO(i.vencimento), month));
         
         const received = monthInsts.filter(i => i.status === 'pago').reduce((acc, i) => acc + Number(i.valor), 0);
-        const toReceive = monthInsts.filter(i => i.status !== 'pago').reduce((acc, i) => acc + Number(i.valor), 0);
+        const toReceive = monthInsts.filter(i => i.status === 'pendente' || i.status === 'atrasado').reduce((acc, i) => acc + Number(i.valor), 0);
         const overdue = monthInsts.filter(i => i.status === 'atrasado').reduce((acc, i) => acc + Number(i.valor), 0);
 
         return {
@@ -263,10 +256,10 @@ const Dashboard = () => {
 
       // Process Table Data
       const formattedTable = installments.map(i => ({
-        id: i.id,
-        excursionName: i.plano?.excursao?.nome || 'N/A',
-        passengerName: i.plano?.passageiro?.nome || 'N/A',
-        installment: i.numero,
+        id: i.installment_id,
+        excursionName: i.excursao_nome || 'N/A',
+        passengerName: i.passageiro_nome || 'N/A',
+        installment: i.numero_parcela,
         value: Number(i.valor),
         dueDate: i.vencimento,
         status: i.status
