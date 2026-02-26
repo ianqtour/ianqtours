@@ -34,6 +34,14 @@ import { getUserRole } from '@/lib/authRole'
       const { data } = await supabase.auth.getSession()
       if (data.session) {
         setIsAdminLoggedIn(true)
+        
+        // Se já estiver logado e houver uma rota de origem, redireciona imediatamente
+        const from = location.state?.from?.pathname;
+        if (from) {
+          navigate(from, { replace: true });
+          return;
+        }
+
         if (location.pathname === '/admin' || location.state?.adminMode) {
           // Only force admin if not in booking mode
           if (!isBookingModeRef.current) {
@@ -98,6 +106,12 @@ import { getUserRole } from '@/lib/authRole'
         const role = await getUserRole()
         setUserRole(role)
       })()
+      
+      // Se houver uma rota de origem (vindo de uma ProtectedRoute), redireciona de volta
+      const from = location.state?.from?.pathname;
+      if (from) {
+        navigate(from, { replace: true });
+      }
     }
   }
 
