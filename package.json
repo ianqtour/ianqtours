@@ -24,6 +24,8 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
     "date-fns": "^4.1.0",
+    "echarts": "^6.0.0",
+    "echarts-for-react": "^3.0.6",
     "framer-motion": "^10.16.4",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",

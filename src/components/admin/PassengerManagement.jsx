@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Users, Search, Pencil, Phone, Calendar, User, ChevronLeft, ChevronRight, AlertCircle, Wallet } from 'lucide-react';
+import { Users, Search, Pencil, Phone, Calendar, User, ChevronLeft, ChevronRight, AlertCircle, Wallet, MapPin } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Dialog,
@@ -12,6 +12,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/lib/supabase';
 
 const PassengerManagement = () => {
@@ -23,6 +24,8 @@ const PassengerManagement = () => {
   const [saving, setSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [cpfError, setCpfError] = useState(false);
+  const [paradas, setParadas] = useState([]);
+  const [paradasLoading, setParadasLoading] = useState(false);
   const itemsPerPage = 15;
   const { toast } = useToast();
 
@@ -32,11 +35,13 @@ const PassengerManagement = () => {
     cpf: '',
     telefone: '',
     data_nascimento: '',
-    creditos: '0,00'
+    creditos: '0,00',
+    parada: ''
   });
 
   useEffect(() => {
     fetchPassengers();
+    fetchParadas();
   }, []);
 
   const fetchPassengers = async () => {
@@ -58,6 +63,21 @@ const PassengerManagement = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchParadas = async () => {
+    setParadasLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_enum_values', { p_enum_name: 'public.paradas' });
+      if (error) throw error;
+      const values = (data || []).map((x) => x?.value).filter(Boolean);
+      setParadas(values);
+    } catch (error) {
+      console.error('Erro ao buscar paradas:', error);
+      setParadas([]);
+    } finally {
+      setParadasLoading(false);
     }
   };
 
@@ -98,6 +118,11 @@ const PassengerManagement = () => {
     return true;
   };
 
+  const formatParadaLabel = (value) => {
+    if (!value) return '';
+    return String(value).toUpperCase().replace(/_/g, ' ');
+  };
+
   const maskCPF = (value) => {
     return value
       .replace(/\D/g, '')
@@ -122,7 +147,8 @@ const PassengerManagement = () => {
       cpf: maskCPF(passenger.cpf || ''),
       telefone: maskPhone(passenger.telefone || ''),
       data_nascimento: passenger.data_nascimento || '',
-      creditos: (passenger.creditos || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      creditos: (passenger.creditos || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      parada: passenger.parada || ''
     });
     // Validar CPF inicial ao abrir
     if (passenger.cpf) {
@@ -189,7 +215,8 @@ const PassengerManagement = () => {
           cpf: cleanCPF,
           telefone: cleanPhone,
           data_nascimento: formData.data_nascimento || null,
-          creditos: creditosNumerico
+          creditos: creditosNumerico,
+          parada: formData.parada || null
         })
         .eq('id', currentPassenger.id);
 
@@ -203,7 +230,8 @@ const PassengerManagement = () => {
               cpf: cleanCPF,
               telefone: cleanPhone,
               data_nascimento: formData.data_nascimento,
-              creditos: creditosNumerico
+              creditos: creditosNumerico,
+              parada: formData.parada || null
             } 
           : p
       ));
@@ -352,6 +380,12 @@ const PassengerManagement = () => {
                   </div>
                   <span className="font-medium text-[#ECAE62]">{formatCurrency(passenger.creditos || 0)}</span>
                 </div>
+                <div className="flex items-center text-sm text-white/70">
+                  <div className="w-6 flex justify-center mr-2">
+                    <MapPin className="h-4 w-4 text-[#ECAE62]" />
+                  </div>
+                  <span>{passenger.parada ? formatParadaLabel(passenger.parada) : 'NÃO INFORMADA'}</span>
+                </div>
               </div>
 
               <div className="flex gap-2 pt-3 border-t border-white/10">
@@ -463,6 +497,28 @@ const PassengerManagement = () => {
                 className="bg-white/10 border-white/20 text-white font-bold text-[#ECAE62]"
                 placeholder="0,00"
               />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-white/80">Parada</label>
+              <Select
+                value={formData.parada || '__none__'}
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, parada: value === '__none__' ? '' : value }))}
+              >
+                <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                  <SelectValue placeholder="SELECIONE A PARADA" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#0F172A] border-white/20 text-white">
+                  <SelectItem value="__none__">NENHUMA</SelectItem>
+                  {(paradas || []).map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {formatParadaLabel(p)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {paradasLoading && (
+                <div className="text-xs text-white/60">CARREGANDO PARADAS...</div>
+              )}
             </div>
           </div>
 
