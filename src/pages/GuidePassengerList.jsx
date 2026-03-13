@@ -29,11 +29,25 @@ const GuidePassengerList = () => {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [selectedPassenger, setSelectedPassenger] = useState(null);
 
+  const [paradasOrder, setParadasOrder] = useState([]);
+
   useEffect(() => {
     if (busId) {
       fetchData();
+      fetchParadasOrder();
     }
   }, [busId]);
+
+  const fetchParadasOrder = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_enum_values', { p_enum_name: 'public.paradas' });
+      if (error) throw error;
+      const values = (data || []).map((x) => x?.value).filter(Boolean);
+      setParadasOrder(values);
+    } catch (error) {
+      console.error('Erro ao buscar ordem das paradas:', error);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -230,10 +244,25 @@ const GuidePassengerList = () => {
     return acc;
   }, {});
 
-  // Sort groups alphabetically, but put "SEM PARADA" last
+  // Sort groups based on enum order
   const sortedGroups = Object.keys(groupedPassengers).sort((a, b) => {
+    // SEM PARADA DEFINIDA goes last
     if (a === 'SEM PARADA DEFINIDA') return 1;
     if (b === 'SEM PARADA DEFINIDA') return -1;
+
+    const indexA = paradasOrder.indexOf(a);
+    const indexB = paradasOrder.indexOf(b);
+
+    // If both are in the enum list, sort by index
+    if (indexA !== -1 && indexB !== -1) {
+      return indexA - indexB;
+    }
+
+    // If only one is in the list, prioritize the one in the list
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+
+    // Fallback to alphabetical if neither is in the list
     return a.localeCompare(b);
   });
 
