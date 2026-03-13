@@ -7,6 +7,7 @@ import ExcursionDetails from '@/pages/ExcursionDetails';
 import ExcursionsList from '@/pages/ExcursionsList';
 import MeusIngressos from '@/pages/MeusIngressos';
 import FeedbackPage from '@/pages/FeedbackPage';
+import GuidePassengerList from '@/pages/GuidePassengerList';
 import ChatAgente from '@/pages/ChatAgente';
 import Dashboard from '@/pages/Dashboard';
 import ProtectedRoute from '@/lib/ProtectedRoute';
@@ -37,6 +38,7 @@ function App() {
             <Route path="/admin" element={<BookingPage />} />
             <Route path="/meus-ingressos" element={<MeusIngressos />} />
             <Route path="/pesquisa/:excursaoName/:cpf" element={<FeedbackPage />} />
+            <Route path="/guia/onibus/:busId" element={<GuidePassengerList />} />
             <Route 
               path="/chat" 
               element={

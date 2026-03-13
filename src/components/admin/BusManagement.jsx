@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, Edit, Bus, MessageCircle } from 'lucide-react';
+import { Plus, Trash2, Edit, Bus, MessageCircle, ExternalLink, Copy, Check } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Select,
@@ -36,7 +37,11 @@ const BusManagement = () => {
   }, []);
 
   const loadBuses = async () => {
-    const { data: busRows } = await supabase.from('onibus').select('*')
+    const { data: busRows } = await supabase
+      .from('onibus')
+      .select('*, excursoes!inner(status)')
+      .eq('excursoes.status', 'active');
+
     const mapped = (busRows || []).map((row) => ({
       id: row.id,
       name: row.nome,
@@ -196,6 +201,16 @@ const BusManagement = () => {
     return (bus.seats || []).filter(seat => seat.status === 'available').length;
   };
 
+  const copyToClipboard = (busId) => {
+    const link = `${window.location.origin}/guia/onibus/${busId}`;
+    navigator.clipboard.writeText(link);
+    toast({
+      title: "Link Copiado",
+      description: "Link da lista de passageiros copiado para a área de transferência.",
+      className: "bg-green-500 text-white border-none"
+    });
+  };
+
   const getOccupiedSeats = (bus) => {
     return (bus.seats || []).filter(seat => seat.status === 'occupied').length;
   };
@@ -308,6 +323,27 @@ const BusManagement = () => {
                     <MessageCircle className="mr-2 h-4 w-4" />
                     Enviar Whatsapp
                   </Button>
+                  <div className="flex gap-2 mt-2">
+                    <Link to={`/guia/onibus/${bus.id}`} target="_blank" className="flex-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full border-blue-500/30 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300"
+                      >
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        Abrir
+                      </Button>
+                    </Link>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(bus.id)}
+                      className="flex-1 border-[#ECAE62]/30 text-[#ECAE62] hover:bg-[#ECAE62]/10"
+                    >
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copiar
+                    </Button>
+                  </div>
                 </motion.div>
               ))}
             </div>
