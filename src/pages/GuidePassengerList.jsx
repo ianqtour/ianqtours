@@ -24,6 +24,7 @@ const GuidePassengerList = () => {
   const [excursion, setExcursion] = useState(null);
   const [passengers, setPassengers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'present', 'pending'
   const [updatingId, setUpdatingId] = useState(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [selectedPassenger, setSelectedPassenger] = useState(null);
@@ -212,7 +213,14 @@ const GuidePassengerList = () => {
     const searchLower = searchTerm.toLowerCase();
     const name = p.details.nome?.toLowerCase() || '';
     const seat = String(p.seatNumber);
-    return name.includes(searchLower) || seat.includes(searchLower);
+    const matchesSearch = name.includes(searchLower) || seat.includes(searchLower);
+
+    if (!matchesSearch) return false;
+
+    if (filterStatus === 'present') return p.presente;
+    if (filterStatus === 'pending') return !p.presente;
+    
+    return true;
   });
 
   const groupedPassengers = filteredPassengers.reduce((acc, p) => {
@@ -291,14 +299,40 @@ const GuidePassengerList = () => {
             </div>
           </div>
 
-          <div className="mt-4 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 h-4 w-4" />
-            <Input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar passageiro ou poltrona..."
-              className="pl-10 bg-white/5 border-white/20 text-white placeholder:text-white/50 w-full rounded-full focus:ring-[#ECAE62]"
-            />
+          <div className="mt-4 flex flex-col gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 h-4 w-4" />
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar passageiro ou poltrona..."
+                className="pl-10 bg-white/5 border-white/20 text-white placeholder:text-white/50 w-full rounded-full focus:ring-[#ECAE62]"
+              />
+            </div>
+
+            <div className="flex gap-2 justify-center">
+              <Button 
+                size="sm"
+                onClick={() => setFilterStatus('all')}
+                className={`flex-1 rounded-full text-xs h-8 ${filterStatus === 'all' ? 'bg-[#ECAE62] text-black hover:bg-[#ECAE62]/90' : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/10'}`}
+              >
+                Todos
+              </Button>
+              <Button 
+                size="sm"
+                onClick={() => setFilterStatus('pending')}
+                className={`flex-1 rounded-full text-xs h-8 ${filterStatus === 'pending' ? 'bg-[#ECAE62] text-black hover:bg-[#ECAE62]/90' : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/10'}`}
+              >
+                Pendentes
+              </Button>
+              <Button 
+                size="sm"
+                onClick={() => setFilterStatus('present')}
+                className={`flex-1 rounded-full text-xs h-8 ${filterStatus === 'present' ? 'bg-[#ECAE62] text-black hover:bg-[#ECAE62]/90' : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/10'}`}
+              >
+                Presentes
+              </Button>
+            </div>
           </div>
         </div>
       </div>
