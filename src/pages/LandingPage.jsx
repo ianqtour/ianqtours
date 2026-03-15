@@ -19,7 +19,7 @@ const LandingPage = () => {
 
   useEffect(() => {
     const loadTours = async () => {
-      const { data } = await supabase.from('excursoes').select('*').order('horario_partida', { ascending: true });
+      const { data } = await supabase.from('excursoes').select('*').eq('status', 'active').order('horario_partida', { ascending: true });
 
       const exList = data || [];
       const exIds = exList.map(r => r.id);
@@ -76,7 +76,7 @@ const LandingPage = () => {
         image: row.imagem_url || '',
         availableSeats: availByExc[row.id] ?? null,
       }));
-      const upcoming = mapped.filter(t => new Date(t.date) >= new Date());
+      const upcoming = mapped.filter(t => new Date(t.date) >= new Date() && (t.availableSeats === null || t.availableSeats > 0));
       setTours(upcoming.slice(0, 6));
       if (!data || data.length === 0) {
         setTours([

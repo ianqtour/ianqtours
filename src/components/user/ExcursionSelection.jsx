@@ -10,7 +10,7 @@ const ExcursionSelection = ({ onSelect, onAdminBack, isAdmin = false }) => {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from('excursoes').select('*').order('horario_partida', { ascending: true })
+      const { data } = await supabase.from('excursoes').select('*').eq('status', 'active').order('horario_partida', { ascending: true })
       const exList = data || []
       const exIds = exList.map(r => r.id)
       let busByExc = {}
@@ -61,10 +61,11 @@ const ExcursionSelection = ({ onSelect, onAdminBack, isAdmin = false }) => {
         availableSeats: availByExc[row.id] ?? null,
         image: row.imagem_url || ''
       }))
-      setExcursions(mapped)
+      const filtered = isAdmin ? mapped : mapped.filter(t => t.availableSeats === null || t.availableSeats > 0)
+      setExcursions(filtered)
     }
     load()
-  }, []);
+  }, [isAdmin]);
 
   return (
     <div className="min-h-screen p-4 md:p-8">
