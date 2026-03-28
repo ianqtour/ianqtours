@@ -40,6 +40,19 @@ const GuidePassengerList = () => {
 
   const fetchParadasOrder = async () => {
     try {
+      // Try to get custom order from paradas_ordem table
+      const { data: ordemData, error: ordemError } = await supabase
+        .from('paradas_ordem')
+        .select('parada, posicao')
+        .order('posicao', { ascending: true });
+
+      if (!ordemError && ordemData && ordemData.length > 0) {
+        const values = ordemData.map(x => x.parada).filter(Boolean);
+        setParadasOrder(values);
+        return;
+      }
+
+      // Fallback: get from enum
       const { data, error } = await supabase.rpc('get_enum_values', { p_enum_name: 'public.paradas' });
       if (error) throw error;
       const values = (data || []).map((x) => x?.value).filter(Boolean);

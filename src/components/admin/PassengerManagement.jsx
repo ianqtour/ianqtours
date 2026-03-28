@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, Search, Pencil, Phone, Calendar, User, ChevronLeft, ChevronRight, AlertCircle, Wallet, MapPin } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import StopOrderManagement from '@/components/admin/StopOrderManagement';
 import {
   Dialog,
   DialogContent,
@@ -302,6 +304,19 @@ const PassengerManagement = () => {
 
   return (
     <div className="space-y-6">
+      <Tabs defaultValue="passengers" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 bg-white/5 mb-6">
+          <TabsTrigger value="passengers" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-[#0B1420] text-white/70 text-sm">
+            <Users className="h-4 w-4 mr-2" />
+            Lista de Passageiros
+          </TabsTrigger>
+          <TabsTrigger value="stops" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-[#0B1420] text-white/70 text-sm">
+            <MapPin className="h-4 w-4 mr-2" />
+            Ordem das Paradas
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="passengers">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-2xl font-bold text-white flex items-center gap-2">
           <Users className="h-6 w-6 text-[#ECAE62]" />
@@ -532,6 +547,12 @@ const PassengerManagement = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+
+        <TabsContent value="stops">
+          <StopOrderManagement />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
