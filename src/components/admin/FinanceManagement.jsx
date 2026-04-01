@@ -1168,7 +1168,7 @@ const FinanceManagement = () => {
       )}
 
       <Dialog open={!!openPlanFor} onOpenChange={() => setOpenPlanFor(null)}>
-        <DialogContent className="bg-[#0F172A] border-white/20 text-white max-w-lg [&>button:last-child]:hidden">
+        <DialogContent className="bg-[#0F172A] border-white/20 text-white max-w-lg max-h-[85vh] overflow-y-auto [&>button:last-child]:hidden">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl">Criar Plano de Pagamento</DialogTitle>
             <DialogDescription className="text-white/80 text-sm">
@@ -1316,7 +1316,7 @@ const FinanceManagement = () => {
         setNewInstValue('')
         setNewInstDate('')
       }}>
-        <DialogContent className="bg-[#0F172A] border-white/20 text-white w-full max-w-md sm:max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0 [&>button:last-child]:hidden">
+        <DialogContent className="bg-[#0F172A] border-white/20 text-white w-full max-w-md sm:max-w-2xl h-[80vh] sm:h-auto sm:max-h-[85vh] flex flex-col overflow-hidden p-0 [&>button:last-child]:hidden">
           <DialogHeader className="p-6 pb-2">
             <div className="flex items-center justify-between">
               <div>
