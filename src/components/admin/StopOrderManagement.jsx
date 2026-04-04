@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { MapPin, ArrowUp, ArrowDown, Save, Loader2, RotateCcw, GripVertical, Info } from 'lucide-react';
+import { MapPin, ArrowUp, ArrowDown, Save, Loader2, RotateCcw, GripVertical, Info, Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase';
 
 const StopOrderManagement = () => {
@@ -13,6 +15,8 @@ const StopOrderManagement = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [newStopOpen, setNewStopOpen] = useState(false);
+  const [newStopName, setNewStopName] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -130,6 +134,31 @@ const StopOrderManagement = () => {
     setParadas([...originalParadas]);
   };
 
+  const handleAddNewStop = () => {
+    if (!newStopName.trim()) return;
+    
+    const formattedStop = newStopName.trim().toUpperCase().replace(/\s+/g, '_');
+    
+    if (paradas.some(p => p.parada === formattedStop)) {
+      toast({
+        title: 'Aviso',
+        description: 'Esta parada já existe.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const maxPos = paradas.length > 0 ? Math.max(...paradas.map(p => p.posicao)) : 0;
+    const novoItem = {
+      parada: formattedStop,
+      posicao: maxPos + 1
+    };
+
+    setParadas([...paradas, novoItem]);
+    setNewStopName('');
+    setNewStopOpen(false);
+  };
+
   const formatParadaLabel = (value) => {
     if (!value) return '';
     return String(value).toUpperCase().replace(/_/g, ' ');
@@ -190,6 +219,13 @@ const StopOrderManagement = () => {
             Arraste ou use as setas para reordenar. A ordem define como os passageiros aparecem agrupados no link do guia.
           </p>
         </div>
+        <Button 
+          onClick={() => setNewStopOpen(true)}
+          className="bg-[#ECAE62] text-[#0B1420] hover:bg-[#d49a55]"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Nova Parada
+        </Button>
       </div>
 
       {/* Info Banner */}
@@ -312,6 +348,37 @@ const StopOrderManagement = () => {
           <span className="text-white/30 text-xs">✓ Ordem salva e sincronizada com o link do guia</span>
         </div>
       )}
+
+      {/* Modal Nova Parada */}
+      <Dialog open={newStopOpen} onOpenChange={setNewStopOpen}>
+        <DialogContent className="bg-[#0F172A] border-white/20 text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova Parada</DialogTitle>
+            <DialogDescription className="text-white/70">
+              Digite o nome da nova parada. Ela será adicionada ao final da lista.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-white/80">Nome da Parada</label>
+              <Input
+                value={newStopName}
+                onChange={(e) => setNewStopName(e.target.value)}
+                placeholder="Ex: POSTO GRAAL"
+                className="bg-white/10 border-white/20 text-white uppercase"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewStopOpen(false)} className="bg-transparent border-white/20 text-white hover:bg-white/10">
+              Cancelar
+            </Button>
+            <Button onClick={handleAddNewStop} className="bg-[#ECAE62] text-[#0B1420] hover:bg-[#d49a55]">
+              Adicionar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

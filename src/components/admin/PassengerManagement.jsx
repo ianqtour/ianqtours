@@ -71,10 +71,20 @@ const PassengerManagement = () => {
   const fetchParadas = async () => {
     setParadasLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_enum_values', { p_enum_name: 'public.paradas' });
-      if (error) throw error;
-      const values = (data || []).map((x) => x?.value).filter(Boolean);
-      setParadas(values);
+      const { data: ordemData, error: ordemError } = await supabase
+        .from('paradas_ordem')
+        .select('parada')
+        .order('posicao', { ascending: true });
+
+      if (!ordemError && ordemData && ordemData.length > 0) {
+        const values = ordemData.map(x => x.parada).filter(Boolean);
+        setParadas(values);
+      } else {
+        const { data, error } = await supabase.rpc('get_enum_values', { p_enum_name: 'public.paradas' });
+        if (error) throw error;
+        const values = (data || []).map((x) => x?.value).filter(Boolean);
+        setParadas(values);
+      }
     } catch (error) {
       console.error('Erro ao buscar paradas:', error);
       setParadas([]);
