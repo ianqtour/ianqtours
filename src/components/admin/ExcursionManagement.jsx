@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Plus, Trash2, Edit, CheckCircle, Send, Filter } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase'
 
@@ -26,6 +27,7 @@ const ExcursionManagement = () => {
     price: '',
     image: '',
     imageFile: null,
+    interestadual: false,
   });
   const [depDateBR, setDepDateBR] = useState('')
   const [depTimeHM, setDepTimeHM] = useState('')
@@ -142,7 +144,8 @@ const ExcursionManagement = () => {
       duration: row.duracao,
       price: Number(row.preco),
       image: row.imagem_url || '',
-      status: row.status || 'active'
+      status: row.status || 'active',
+      interestadual: !!row.interestadual
     }))
     setExcursions(mapped)
   };
@@ -190,6 +193,7 @@ const ExcursionManagement = () => {
         incluso: formData.inclusions,
         duracao: formData.duration,
         preco: parseFloat(formData.price),
+        interestadual: formData.interestadual,
       }
       if (imageUrl) {
         updateFields.imagem_url = imageUrl
@@ -214,6 +218,7 @@ const ExcursionManagement = () => {
           incluso: formData.inclusions,
           duracao: formData.duration,
           preco: parseFloat(formData.price),
+          interestadual: formData.interestadual,
           status: 'active'
         })
         .select('id')
@@ -251,6 +256,7 @@ const ExcursionManagement = () => {
       price: '',
       image: '',
       imageFile: null,
+      interestadual: false,
     });
     setIsAdding(false);
   };
@@ -385,7 +391,8 @@ const ExcursionManagement = () => {
       inclusions: '',
       duration: '',
       price: '',
-      image: ''
+      image: '',
+      interestadual: false
     });
     setDepDateBR('')
     setDepTimeHM('')
@@ -433,6 +440,7 @@ const ExcursionManagement = () => {
                   availableSeats: '',
                   image: '',
                   imageFile: null,
+                  interestadual: false,
                 });
                 setIsAdding(true);
               }}
@@ -662,6 +670,15 @@ const ExcursionManagement = () => {
                   className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                   placeholder="299.99"
                   required
+                />
+              </div>
+
+              <div className="space-y-2 flex items-center justify-between p-4 bg-white/5 rounded-lg self-end h-[42px]">
+                <Label htmlFor="interestadual" className="text-white cursor-pointer">Interestadual</Label>
+                <Switch
+                  id="interestadual"
+                  checked={formData.interestadual}
+                  onCheckedChange={(checked) => setFormData({ ...formData, interestadual: checked })}
                 />
               </div>
 

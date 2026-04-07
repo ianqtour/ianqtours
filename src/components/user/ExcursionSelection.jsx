@@ -59,7 +59,8 @@ const ExcursionSelection = ({ onSelect, onAdminBack, isAdmin = false }) => {
         duration: row.duracao,
         price: Number(row.preco),
         availableSeats: availByExc[row.id] ?? null,
-        image: row.imagem_url || ''
+        image: row.imagem_url || '',
+        interestadual: !!row.interestadual
       }))
       const filtered = isAdmin ? mapped : mapped.filter(t => t.availableSeats === null || t.availableSeats > 0)
       setExcursions(filtered)

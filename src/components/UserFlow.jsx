@@ -245,6 +245,7 @@ const UserFlow = ({ onAdminClick, initialExcursion, isAdmin = false }) => {
           onibus: busLabel,
           assento: Number(p.seatNumber),
           telefone: p.phone,
+          interestadual: selectedExcursion?.interestadual ? 'sim' : 'não',
         })
       }
     } else if (confirmedPassenger) {
@@ -260,6 +261,7 @@ const UserFlow = ({ onAdminClick, initialExcursion, isAdmin = false }) => {
         onibus: busLabel,
         assento: seat,
         telefone: confirmedPassenger?.telefone || '',
+        interestadual: selectedExcursion?.interestadual ? 'sim' : 'não',
       })
     }
     if (payloads.length > 0 && !isGuide) {
