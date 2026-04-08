@@ -28,6 +28,7 @@ const ExcursionManagement = () => {
     image: '',
     imageFile: null,
     interestadual: false,
+    hospedagem: false,
   });
   const [depDateBR, setDepDateBR] = useState('')
   const [depTimeHM, setDepTimeHM] = useState('')
@@ -145,7 +146,8 @@ const ExcursionManagement = () => {
       price: Number(row.preco),
       image: row.imagem_url || '',
       status: row.status || 'active',
-      interestadual: !!row.interestadual
+      interestadual: !!row.interestadual,
+      hospedagem: !!row.hospedagem
     }))
     setExcursions(mapped)
   };
@@ -194,6 +196,7 @@ const ExcursionManagement = () => {
         duracao: formData.duration,
         preco: parseFloat(formData.price),
         interestadual: formData.interestadual,
+        hospedagem: formData.hospedagem,
       }
       if (imageUrl) {
         updateFields.imagem_url = imageUrl
@@ -219,6 +222,7 @@ const ExcursionManagement = () => {
           duracao: formData.duration,
           preco: parseFloat(formData.price),
           interestadual: formData.interestadual,
+          hospedagem: formData.hospedagem,
           status: 'active'
         })
         .select('id')
@@ -257,6 +261,7 @@ const ExcursionManagement = () => {
       image: '',
       imageFile: null,
       interestadual: false,
+      hospedagem: false,
     });
     setIsAdding(false);
   };
@@ -392,7 +397,8 @@ const ExcursionManagement = () => {
       duration: '',
       price: '',
       image: '',
-      interestadual: false
+      interestadual: false,
+      hospedagem: false,
     });
     setDepDateBR('')
     setDepTimeHM('')
@@ -441,6 +447,7 @@ const ExcursionManagement = () => {
                   image: '',
                   imageFile: null,
                   interestadual: false,
+                  hospedagem: false,
                 });
                 setIsAdding(true);
               }}
@@ -679,6 +686,15 @@ const ExcursionManagement = () => {
                   id="interestadual"
                   checked={formData.interestadual}
                   onCheckedChange={(checked) => setFormData({ ...formData, interestadual: checked })}
+                />
+              </div>
+
+              <div className="space-y-2 flex items-center justify-between p-4 bg-white/5 rounded-lg self-end h-[42px]">
+                <Label htmlFor="hospedagem" className="text-white cursor-pointer">Hospedagem</Label>
+                <Switch
+                  id="hospedagem"
+                  checked={formData.hospedagem}
+                  onCheckedChange={(checked) => setFormData({ ...formData, hospedagem: checked })}
                 />
               </div>
 

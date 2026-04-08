@@ -80,6 +80,14 @@ const FeedbackPage = () => {
       });
       return;
     }
+    if (!comment.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Comentário necessário",
+        description: "Por favor, escreva um comentário sobre sua experiência.",
+      });
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -214,7 +222,7 @@ const FeedbackPage = () => {
 
           <div className="space-y-2">
             <label htmlFor="comment" className="block text-sm font-medium text-gray-300">
-              Comentário (Opcional)
+              Comentário <span className="text-red-400">*</span>
             </label>
             <Textarea
               id="comment"
@@ -227,7 +235,7 @@ const FeedbackPage = () => {
 
           <Button
             type="submit"
-            disabled={submitting || rating === 0}
+            disabled={submitting || rating === 0 || !comment.trim()}
             className="w-full bg-[#ECAE62] hover:bg-[#8C641C] text-[#0B1420] font-bold py-3 text-lg h-auto transition-all"
           >
             {submitting ? (

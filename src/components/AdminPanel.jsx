@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, LogOut, PlusCircle, MapPin, Bus, ClipboardList, DollarSign, Users, Star } from 'lucide-react';
+import { ArrowLeft, LogOut, PlusCircle, MapPin, Bus, ClipboardList, DollarSign, Users, Star, Hotel } from 'lucide-react';
 import ExcursionManagement from '@/components/admin/ExcursionManagement';
 import BusManagement from '@/components/admin/BusManagement';
 import ReservationManagement from '@/components/admin/ReservationManagement';
 import FinanceManagement from '@/components/admin/FinanceManagement';
 import PassengerManagement from '@/components/admin/PassengerManagement';
 import FeedbackManagement from '@/components/admin/FeedbackManagement';
+import AccommodationManagement from '@/components/admin/AccommodationManagement';
 
 const AdminPanel = ({ onLogout, onBack, onStartReservation, role = 'admin' }) => {
   const [tab, setTab] = React.useState(role === 'admin' ? 'excursions' : 'reservations')
@@ -63,7 +64,7 @@ const AdminPanel = ({ onLogout, onBack, onStartReservation, role = 'admin' }) =>
 
           <Tabs value={tab} onValueChange={setTab} className="w-full">
             {role === 'admin' ? (
-              <TabsList className="grid w-full grid-cols-6 bg-white/5 mb-4 md:mb-8">
+              <TabsList className="grid w-full grid-cols-7 bg-white/5 mb-4 md:mb-8">
                 <TabsTrigger value="excursions" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
                   <MapPin className="h-4 w-4 md:hidden" />
                   <span className="hidden md:inline">Excursões</span>
@@ -87,6 +88,10 @@ const AdminPanel = ({ onLogout, onBack, onStartReservation, role = 'admin' }) =>
                 <TabsTrigger value="feedbacks" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
                   <Star className="h-4 w-4 md:hidden" />
                   <span className="hidden md:inline">Feedbacks</span>
+                </TabsTrigger>
+                <TabsTrigger value="hospedagem" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
+                  <Hotel className="h-4 w-4 md:hidden" />
+                  <span className="hidden md:inline">Hospedagem</span>
                 </TabsTrigger>
               </TabsList>
             ) : (
@@ -128,6 +133,12 @@ const AdminPanel = ({ onLogout, onBack, onStartReservation, role = 'admin' }) =>
             {role === 'admin' && (
               <TabsContent value="feedbacks">
                 <FeedbackManagement />
+              </TabsContent>
+            )}
+
+            {role === 'admin' && (
+              <TabsContent value="hospedagem">
+                <AccommodationManagement />
               </TabsContent>
             )}
           </Tabs>
