@@ -373,6 +373,7 @@ const BusManagement = () => {
                   <SelectContent>
                     <SelectItem value="Micro-ônibus">Micro-ônibus</SelectItem>
                     <SelectItem value="Ônibus">Ônibus</SelectItem>
+                    <SelectItem value="Ônibus Leito">Ônibus Leito</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -424,6 +425,8 @@ const BusManagement = () => {
                   <SelectContent>
                     {formData.name === 'Micro-ônibus' ? (
                       <SelectItem value="30">30</SelectItem>
+                    ) : formData.name === 'Ônibus Leito' ? (
+                      <SelectItem value="43">43</SelectItem>
                     ) : (
                       <>
                         <SelectItem value="46">46</SelectItem>
