@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { buildWhatsAppUrl } from '@/lib/whatsapp'
 import { MapPin, CalendarDays, Clock, Users, ArrowRight, Tag, CreditCard, CheckCircle } from 'lucide-react'
+import { formatDuration } from '@/lib/utils'
 
   const ExcursionDetails = () => {
     const { id } = useParams()
@@ -149,7 +150,7 @@ import { MapPin, CalendarDays, Clock, Users, ArrowRight, Tag, CreditCard, CheckC
                       <span className="flex items-center"><CalendarDays className="h-4 w-4 mr-1 text-[#ECAE62]" /> {formatDate(excursion.horario_partida)}</span>
                     )}
                     {excursion.duracao && (
-                      <span className="flex items-center"><Clock className="h-4 w-4 mr-1 text-[#ECAE62]" /> {excursion.duracao}</span>
+                      <span className="flex items-center"><Clock className="h-4 w-4 mr-1 text-[#ECAE62]" /> {formatDuration(excursion.duracao)}</span>
                     )}
                     {availableSeats != null && (
                       <span className="flex items-center"><Users className="h-4 w-4 mr-1 text-[#ECAE62]" /> {availableSeats} vagas</span>
@@ -204,7 +205,7 @@ import { MapPin, CalendarDays, Clock, Users, ArrowRight, Tag, CreditCard, CheckC
                         <Clock className="h-5 w-5 text-[#ECAE62]" />
                         <div className="flex-1">
                           <div className="text-xs uppercase tracking-wide text-white/60">Duração</div>
-                          <div className="text-sm">{excursion.duracao || '-'}</div>
+                          <div className="text-sm">{formatDuration(excursion.duracao) || '-'}</div>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">

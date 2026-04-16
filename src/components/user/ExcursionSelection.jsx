@@ -4,6 +4,7 @@ import { Calendar, MapPin, Clock, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase'
 import Navbar from '@/components/landing/Navbar'
+import { formatDuration } from '@/lib/utils'
 
 const ExcursionSelection = ({ onSelect, onAdminBack, isAdmin = false }) => {
   const [excursions, setExcursions] = useState([]);
@@ -124,7 +125,7 @@ const ExcursionSelection = ({ onSelect, onAdminBack, isAdmin = false }) => {
                     </div>
                     <div className="flex items-center text-white/80">
                       <Clock className="h-4 w-4 mr-2 text-[#ECAE62]" />
-                      <span className="text-sm">{excursion.duration}</span>
+                      <span className="text-sm">{formatDuration(excursion.duration)}</span>
                     </div>
                     {excursion.availableSeats != null && (
                       <div className="flex items-center text-white/80">

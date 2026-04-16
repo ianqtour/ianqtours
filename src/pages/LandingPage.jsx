@@ -2,11 +2,12 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Map, ShieldCheck, Star, Users, Sun, Mountain, Waves, CalendarDays, Plane, Compass, Camera, MapPin, Globe2, Bus, Ticket, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, Map, ShieldCheck, Star, Users, Sun, Mountain, Waves, CalendarDays, Plane, Compass, Camera, MapPin, Globe2, Bus, Ticket, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import Navbar from '@/components/landing/Navbar';
 import Footer from '@/components/landing/Footer';
 import { supabase } from '@/lib/supabase';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
+import { formatDuration } from '@/lib/utils';
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -74,6 +75,7 @@ const LandingPage = () => {
         date: row.horario_partida,
         price: Number(row.preco),
         image: row.imagem_url || '',
+        duration: formatDuration(row.duracao),
         availableSeats: availByExc[row.id] ?? null,
       }));
       const upcoming = mapped.filter(t => new Date(t.date) >= new Date() && (t.availableSeats === null || t.availableSeats > 0));
@@ -498,7 +500,8 @@ const LandingPage = () => {
                 <div className="p-4 sm:p-6 text-left">
                   <h3 className="text-lg sm:text-2xl font-bold text-white mb-1 line-clamp-2">{tour.name}</h3>
                   <p className="text-white/70 mb-3 flex items-center"><MapPin className="h-4 w-4 mr-2 text-[#ECAE62]" /> {tour.destination}</p>
-                  <p className="text-white/70 mb-4 flex items-center"><CalendarDays className="h-4 w-4 mr-2 text-[#ECAE62]"/> {formatDate(tour.date)}</p>
+                  <p className="text-white/70 mb-2 flex items-center"><CalendarDays className="h-4 w-4 mr-2 text-[#ECAE62]"/> {formatDate(tour.date)}</p>
+                  <p className="text-white/70 mb-4 flex items-center"><Clock className="h-4 w-4 mr-2 text-[#ECAE62]"/> {tour.duration}</p>
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                     <div className="text-white/80">
                       {tour.availableSeats === 0 ? 'Vagas esgotadas' : 'Vamos nessa?'}
