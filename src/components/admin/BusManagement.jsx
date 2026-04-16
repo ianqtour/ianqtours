@@ -108,6 +108,25 @@ const BusManagement = () => {
           });
         }
         await supabase.from('assentos_onibus').insert(newSeats);
+      } 
+      // Se o número de assentos diminuiu, remover os assentos excedentes
+      else if (totalSeatsNum < oldTotalSeats) {
+        const occupiedInExtraRange = (currentBus.seats || [])
+          .filter(s => s.number > totalSeatsNum && s.status === 'occupied').length;
+        
+        if (occupiedInExtraRange > 0) {
+          toast({
+            title: "Erro ao reduzir capacidade",
+            description: `Existem ${occupiedInExtraRange} assentos ocupados na faixa que você está tentando remover. Libere os assentos primeiro.`,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        await supabase.from('assentos_onibus')
+          .delete()
+          .eq('onibus_id', editingId)
+          .gt('numero_assento', totalSeatsNum);
       }
 
       await loadBuses()

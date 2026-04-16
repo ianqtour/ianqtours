@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase';
 import {
   Plus, Trash2, Edit, ArrowLeft, BedDouble, Users, UserPlus, UserMinus,
-  DoorOpen, Hotel, CheckCircle, Loader2, X, Search
+  DoorOpen, Hotel, CheckCircle, Loader2, X, Search, FileText, Send
 } from 'lucide-react';
 
 const AccommodationManagement = () => {
@@ -42,6 +42,9 @@ const AccommodationManagement = () => {
   // Remove allocation
   const [removeAllocation, setRemoveAllocation] = useState(null);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  
+  // Send report
+  const [sendingReport, setSendingReport] = useState(false);
 
   // --- Load excursions with hospedagem ---
   useEffect(() => {
@@ -278,6 +281,44 @@ const AccommodationManagement = () => {
     }
   };
 
+  // --- Webhook ---
+  const handleSendReport = async () => {
+    if (!selectedExcursionId) return;
+    
+    setSendingReport(true);
+    try {
+      const response = await fetch('https://n8n-n8n.j6kpgx.easypanel.host/webhook/hospedagem', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          excursao_id: selectedExcursionId,
+          nome_excursao: selectedExcursion?.nome,
+          data_envio: new Date().toISOString()
+        })
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'Relatório enviado!',
+          description: 'O relatório de hospedagem foi enviado com sucesso para processamento.'
+        });
+      } else {
+        throw new Error('Falha ao enviar relatório para o webhook');
+      }
+    } catch (err) {
+      console.error('Error sending report:', err);
+      toast({
+        title: 'Erro no envio',
+        description: 'Não foi possível enviar o relatório. Verifique a conexão.',
+        variant: 'destructive'
+      });
+    } finally {
+      setSendingReport(false);
+    }
+  };
+
   // --- Helpers ---
   const getPassengerName = (id) => {
     const p = passengers.find(p => p.id === id);
@@ -371,8 +412,22 @@ const AccommodationManagement = () => {
             </div>
           </div>
 
-          {/* Add Room Button */}
-          <div className="flex justify-end">
+          {/* Actions */}
+          <div className="flex justify-end gap-3">
+            <Button
+              onClick={handleSendReport}
+              disabled={sendingReport}
+              variant="outline"
+              className="border-[#ECAE62]/50 text-[#ECAE62] hover:bg-[#ECAE62]/10"
+            >
+              {sendingReport ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="mr-2 h-4 w-4" />
+              )}
+              Enviar Relatório
+            </Button>
+
             <Button
               onClick={openNewRoomForm}
               className="bg-[#ECAE62] hover:bg-[#8C641C] text-white"
