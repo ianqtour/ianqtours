@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase';
 import {
   Plus, Trash2, Edit, ArrowLeft, BedDouble, Users, UserPlus, UserMinus,
-  DoorOpen, Hotel, CheckCircle, Loader2, X, Search, FileText, Send
+  DoorOpen, Hotel, CheckCircle, Loader2, X, Search, FileText, Send, Baby
 } from 'lucide-react';
 
 const AccommodationManagement = () => {
@@ -21,6 +21,7 @@ const AccommodationManagement = () => {
   const [rooms, setRooms] = useState([]);
   const [passengers, setPassengers] = useState([]);
   const [allocations, setAllocations] = useState([]);
+  const [childrenAllocations, setChildrenAllocations] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Room form
@@ -43,6 +44,19 @@ const AccommodationManagement = () => {
   const [removeAllocation, setRemoveAllocation] = useState(null);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
   
+  // Child form
+  const [childFormOpen, setChildFormOpen] = useState(false);
+  const [childTarget, setChildTarget] = useState({ quarto_id: null, responsavel_id: null });
+  const [childName, setChildName] = useState('');
+  const [childAge, setChildAge] = useState('');
+  const [childCpf, setChildCpf] = useState('');
+  const [childBirthDate, setChildBirthDate] = useState('');
+  const [savingChild, setSavingChild] = useState(false);
+
+  // Remove child
+  const [childToRemove, setChildToRemove] = useState(null);
+  const [removeChildConfirmOpen, setRemoveChildConfirmOpen] = useState(false);
+
   // Send report
   const [sendingReport, setSendingReport] = useState(false);
 
@@ -69,6 +83,7 @@ const AccommodationManagement = () => {
       setRooms([]);
       setPassengers([]);
       setAllocations([]);
+      setChildrenAllocations([]);
     }
   }, [selectedExcursionId]);
 
@@ -87,14 +102,23 @@ const AccommodationManagement = () => {
       // Load allocations
       const roomIds = (roomData || []).map(r => r.id);
       let allocs = [];
+      let childrenAllocs = [];
+      
       if (roomIds.length > 0) {
         const { data: allocData } = await supabase
           .from('hospedagem_alocacoes')
           .select('*')
           .in('quarto_id', roomIds);
         allocs = allocData || [];
+
+        const { data: childData } = await supabase
+          .from('hospedagem_criancas')
+          .select('*')
+          .in('quarto_id', roomIds);
+        childrenAllocs = childData || [];
       }
       setAllocations(allocs);
+      setChildrenAllocations(childrenAllocs);
 
       // Load passengers of this excursion (from reservas + passageiros_reserva)
       const { data: resData } = await supabase
@@ -278,6 +302,130 @@ const AccommodationManagement = () => {
     } finally {
       setRemoveConfirmOpen(false);
       setRemoveAllocation(null);
+    }
+  };
+
+  // --- Children Allocation ---
+  const formatCpf = (v) => {
+    const digits = String(v).replace(/\D/g, '').slice(0, 11);
+    const p1 = digits.slice(0, 3);
+    const p2 = digits.slice(3, 6);
+    const p3 = digits.slice(6, 9);
+    const p4 = digits.slice(9, 11);
+    let out = '';
+    if (p1) out = p1;
+    if (p2) out = `${out}.${p2}`;
+    if (p3) out = `${out}.${p3}`;
+    if (p4) out = `${out}-${p4}`;
+    return out;
+  };
+
+  const validateCpf = (v) => {
+    const cpf = String(v).replace(/\D/g, '');
+    if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+    let sum = 0;
+    for (let i = 0; i < 9; i++) sum += parseInt(cpf.charAt(i)) * (10 - i);
+    let d1 = (sum * 10) % 11;
+    if (d1 === 10) d1 = 0;
+    if (d1 !== parseInt(cpf.charAt(9))) return false;
+    sum = 0;
+    for (let i = 0; i < 10; i++) sum += parseInt(cpf.charAt(i)) * (11 - i);
+    let d2 = (sum * 10) % 11;
+    if (d2 === 10) d2 = 0;
+    return d2 === parseInt(cpf.charAt(10));
+  };
+
+  const formatBirthDate = (v) => {
+    const digits = String(v).replace(/\D/g, '').slice(0, 8);
+    const d = digits.slice(0, 2);
+    const m = digits.slice(2, 4);
+    const y = digits.slice(4, 8);
+    let out = '';
+    if (d) out = d;
+    if (m) out = `${out}/${m}`;
+    if (y) out = `${out}/${y}`;
+    return out;
+  };
+
+  const calculateAge = (birthDateStr) => {
+    if (!birthDateStr || birthDateStr.length !== 10) return '';
+    const parts = birthDateStr.split('/');
+    if (parts.length !== 3) return '';
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10);
+    const year = parseInt(parts[2], 10);
+    if (isNaN(day) || isNaN(month) || isNaN(year)) return '';
+    
+    const today = new Date();
+    let age = today.getFullYear() - year;
+    const m = today.getMonth() + 1 - month;
+    if (m < 0 || (m === 0 && today.getDate() < day)) {
+      age--;
+    }
+    return age < 0 ? '' : age.toString();
+  };
+
+  const openChildForm = (quartoId, passageiroId) => {
+    setChildTarget({ quarto_id: quartoId, responsavel_id: passageiroId });
+    setChildName('');
+    setChildAge('');
+    setChildCpf('');
+    setChildBirthDate('');
+    setChildFormOpen(true);
+  };
+
+  const handleSaveChild = async () => {
+    if (!childName.trim()) {
+      toast({ title: 'Nome obrigatório', description: 'Informe o nome da criança.', variant: 'destructive' });
+      return;
+    }
+    
+    // Validar CPF se foi preenchido
+    if (childCpf && childCpf.replace(/\D/g, '').length > 0) {
+      if (!validateCpf(childCpf)) {
+        toast({ title: 'CPF Inválido', description: 'O CPF informado não é válido.', variant: 'destructive' });
+        return;
+      }
+    }
+
+    setSavingChild(true);
+    try {
+      const { error } = await supabase
+        .from('hospedagem_criancas')
+        .insert({ 
+          quarto_id: childTarget.quarto_id, 
+          responsavel_id: childTarget.responsavel_id,
+          nome: childName.trim(),
+          idade: childAge ? parseInt(childAge, 10) : null,
+          cpf: childCpf.trim() || null,
+          data_nascimento: childBirthDate.trim() || null
+        });
+      if (error) throw error;
+      toast({ title: 'Criança adicionada', description: 'A criança foi registrada no quarto.' });
+      setChildFormOpen(false);
+      await loadRoomsAndPassengers();
+    } catch (err) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingChild(false);
+    }
+  };
+
+  const handleRemoveChild = async () => {
+    if (!childToRemove) return;
+    try {
+      const { error } = await supabase
+        .from('hospedagem_criancas')
+        .delete()
+        .eq('id', childToRemove.id);
+      if (error) throw error;
+      toast({ title: 'Criança removida', description: 'O registro da criança foi removido.' });
+      await loadRoomsAndPassengers();
+    } catch (err) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } finally {
+      setRemoveChildConfirmOpen(false);
+      setChildToRemove(null);
     }
   };
 
@@ -526,36 +674,69 @@ const AccommodationManagement = () => {
                         {roomAllocs.length === 0 ? (
                           <p className="text-white/30 text-sm text-center py-2">Nenhum passageiro alocado</p>
                         ) : (
-                          roomAllocs.map((alloc) => (
-                            <div
-                              key={alloc.id}
-                              className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2 group"
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <div className="h-7 w-7 rounded-full bg-[#ECAE62]/20 flex items-center justify-center flex-shrink-0">
-                                  <Users className="h-3.5 w-3.5 text-[#ECAE62]" />
+                          roomAllocs.map((alloc) => {
+                            const paxChildren = childrenAllocations.filter(c => c.responsavel_id === alloc.passageiro_id && c.quarto_id === room.id);
+                            return (
+                              <div key={alloc.id} className="flex flex-col gap-1">
+                                <div className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2 group">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <div className="h-7 w-7 rounded-full bg-[#ECAE62]/20 flex items-center justify-center flex-shrink-0">
+                                      <Users className="h-3.5 w-3.5 text-[#ECAE62]" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="text-white text-sm font-medium truncate">
+                                        {getPassengerName(alloc.passageiro_id)}
+                                      </p>
+                                      {getPassengerPhone(alloc.passageiro_id) && (
+                                        <p className="text-white/40 text-[11px] truncate">
+                                          {getPassengerPhone(alloc.passageiro_id)}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      title="Adicionar Criança (Sem ocupar vaga)"
+                                      className="h-7 w-7 p-0 text-blue-400/40 hover:text-blue-400 hover:bg-blue-500/10"
+                                      onClick={() => openChildForm(room.id, alloc.passageiro_id)}
+                                    >
+                                      <Baby className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 w-7 p-0 text-red-400/40 hover:text-red-400 hover:bg-red-500/10"
+                                      onClick={() => { setRemoveAllocation(alloc); setRemoveConfirmOpen(true); }}
+                                    >
+                                      <UserMinus className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
                                 </div>
-                                <div className="min-w-0">
-                                  <p className="text-white text-sm font-medium truncate">
-                                    {getPassengerName(alloc.passageiro_id)}
-                                  </p>
-                                  {getPassengerPhone(alloc.passageiro_id) && (
-                                    <p className="text-white/40 text-[11px] truncate">
-                                      {getPassengerPhone(alloc.passageiro_id)}
-                                    </p>
-                                  )}
-                                </div>
+                                
+                                {/* Render Children */}
+                                {paxChildren.length > 0 && paxChildren.map(child => (
+                                  <div key={child.id} className="flex items-center justify-between bg-white/5 border border-dashed border-white/10 rounded-lg px-3 py-1.5 ml-6 group/child">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <Baby className="h-3.5 w-3.5 text-blue-400/70" />
+                                      <p className="text-white/80 text-xs truncate">
+                                        {child.nome} {child.idade ? `(${child.idade} anos)` : ''}
+                                      </p>
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 w-6 p-0 text-red-400/40 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover/child:opacity-100 transition-opacity"
+                                      onClick={() => { setChildToRemove(child); setRemoveChildConfirmOpen(true); }}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ))}
                               </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0 text-red-400/40 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => { setRemoveAllocation(alloc); setRemoveConfirmOpen(true); }}
-                              >
-                                <UserMinus className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          ))
+                            );
+                          })
                         )}
 
                         {/* Add passenger button */}
@@ -754,6 +935,117 @@ const AccommodationManagement = () => {
             </Button>
             <Button
               onClick={handleRemoveAllocation}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+            >
+              Remover
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Child Modal */}
+      <Dialog open={childFormOpen} onOpenChange={setChildFormOpen}>
+        <DialogContent className="bg-[#0F172A] text-white border-white/20 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Baby className="h-5 w-5 text-blue-400" />
+              Adicionar Criança (Sem vaga)
+            </DialogTitle>
+            <DialogDescription className="text-white/60">
+              Esta criança ficará vinculada a <span className="text-white font-medium">{childTarget.responsavel_id ? getPassengerName(childTarget.responsavel_id) : ''}</span> no quarto. Ela não ocupará espaço na capacidade do quarto.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-white">Nome da Criança</Label>
+              <Input
+                value={childName}
+                onChange={(e) => setChildName(e.target.value)}
+                className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                placeholder="Ex: Joãozinho"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-white">CPF</Label>
+                <Input
+                  value={childCpf}
+                  onChange={(e) => setChildCpf(formatCpf(e.target.value))}
+                  className={`bg-white/10 border ${((childCpf || '').replace(/\D/g, '').length === 11 && !validateCpf(childCpf)) ? 'border-red-500' : 'border-white/20'} text-white placeholder:text-white/50`}
+                  placeholder="000.000.000-00"
+                />
+                {((childCpf || '').replace(/\D/g, '').length === 11 && !validateCpf(childCpf)) && (
+                  <p className="text-red-400 text-xs">CPF inválido</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-white">Data de Nasc.</Label>
+                <Input
+                  value={childBirthDate}
+                  onChange={(e) => {
+                    const formatted = formatBirthDate(e.target.value);
+                    setChildBirthDate(formatted);
+                    if (formatted.length === 10) {
+                      setChildAge(calculateAge(formatted));
+                    } else {
+                      setChildAge('');
+                    }
+                  }}
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                  placeholder="DD/MM/AAAA"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-white">Idade</Label>
+              <Input
+                type="text"
+                value={childAge}
+                disabled
+                className="bg-white/5 border-white/10 text-white/50 placeholder:text-white/30 cursor-not-allowed"
+                placeholder="Calculada automaticamente"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex-row gap-2">
+            <Button
+              onClick={() => setChildFormOpen(false)}
+              className="flex-1 bg-white text-[#0F172A] hover:bg-gray-100"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveChild}
+              disabled={savingChild}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {savingChild ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Child Confirmation */}
+      <Dialog open={removeChildConfirmOpen} onOpenChange={setRemoveChildConfirmOpen}>
+        <DialogContent className="bg-[#0F172A] text-white border-white/20 sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remover Criança</DialogTitle>
+            <DialogDescription className="text-white/60">
+              Deseja remover <span className="text-white font-medium">{childToRemove?.nome}</span> deste quarto?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row gap-2">
+            <Button
+              onClick={() => setRemoveChildConfirmOpen(false)}
+              className="flex-1 bg-white text-[#0F172A] hover:bg-gray-100"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleRemoveChild}
               className="flex-1 bg-red-600 hover:bg-red-700 text-white"
             >
               Remover
