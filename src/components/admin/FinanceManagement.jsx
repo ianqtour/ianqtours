@@ -117,8 +117,8 @@ const FinanceManagement = () => {
   }
 
   const loadExcursions = async () => {
-    const { data: exData } = await supabase.from('excursoes').select('id, nome, preco')
-    setExcursions((exData || []).map(e => ({ id: e.id, name: e.nome, price: Number(e.preco || 0) })))
+    const { data: exData } = await supabase.from('excursoes').select('id, nome, preco, horario_partida')
+    setExcursions((exData || []).map(e => ({ id: e.id, name: e.nome, price: Number(e.preco || 0), date: e.horario_partida })))
   }
 
   const loadBuses = async () => {
@@ -140,7 +140,7 @@ const FinanceManagement = () => {
       let query = supabase
         .from('reservas')
         .select(`
-          id, excursao_id, onibus_id, status, criado_em,
+          id, excursao_id, onibus_id, status, criado_em, excursoes(horario_partida),
           passageiros_reserva (
             id, numero_assento, passageiro_id, presente, is_guide,
             passageiros (id, nome, telefone, creditos)
@@ -260,7 +260,8 @@ const FinanceManagement = () => {
           busId: res.onibus_id,
           passengers,
           seats: passengers.map(p => p.seatNumber),
-          date: res.criado_em,
+          date: res.excursoes?.horario_partida || res.criado_em,
+          createdAt: res.criado_em,
           status: res.status,
         }
       })

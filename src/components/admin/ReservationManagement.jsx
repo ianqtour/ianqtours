@@ -132,7 +132,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
   const loadBookings = async () => {
     let query = supabase
       .from('reservas')
-      .select('id, excursao_id, onibus_id, status, criado_em')
+      .select('id, excursao_id, onibus_id, status, criado_em, excursoes(horario_partida)')
       .neq('status', 'cancelada')
       .order('criado_em', { ascending: false })
 
@@ -210,7 +210,8 @@ const ReservationManagement = ({ allowCancel = true }) => {
         busId: r.onibus_id,
         passengers: list,
         seats: list.map(p => p.seatNumber),
-        date: r.criado_em,
+        date: r.excursoes?.horario_partida || r.criado_em,
+        createdAt: r.criado_em,
         status: r.status === 'confirmada' ? 'confirmed' : r.status === 'cancelada' ? 'canceled' : 'canceled',
       }
     }).filter(b => b.passengers.length > 0)
