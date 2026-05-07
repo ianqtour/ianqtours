@@ -83,21 +83,47 @@ const ReservationManagement = ({ allowCancel = true }) => {
     return s
   }
 
-  const fetchPassengersByIds = async (ids) => {
-    const CHUNK = 50
-    const unique = Array.from(new Set(ids.map((x) => String(x)).filter(Boolean)))
+  const chunkArray = (items, size = 50) => {
+    const chunks = []
+    for (let i = 0; i < items.length; i += size) {
+      chunks.push(items.slice(i, i + size))
+    }
+    return chunks
+  }
+
+  const uniqueIds = (items) => Array.from(new Set((items || []).map((item) => String(item || '').trim()).filter(Boolean)))
+
+  const fetchPassengerReservationsByReservationIds = async (reservationIds) => {
+    const chunks = chunkArray(uniqueIds(reservationIds))
     let result = []
-    for (let i = 0; i < unique.length; i += CHUNK) {
-      const chunk = unique.slice(i, i + CHUNK)
+
+    for (const chunk of chunks) {
+      const { data, error } = await supabase
+        .from('passageiros_reserva')
+        .select('id, reserva_id, numero_assento, passageiro_id, presente, notificado_sucesso, is_guide')
+        .in('reserva_id', chunk)
+
+      if (error) throw error
+      result = result.concat(data || [])
+    }
+
+    return result
+  }
+
+  const fetchPassengersByIds = async (ids) => {
+    const chunks = chunkArray(uniqueIds(ids))
+    let result = []
+
+    for (const chunk of chunks) {
       const { data, error } = await supabase
         .from('passageiros')
         .select('id, nome, telefone, foto_url, data_nascimento')
         .in('id', chunk)
-      if (error) {
-        
-      }
+
+      if (error) throw error
       result = result.concat(data || [])
     }
+
     return result
   }
 
@@ -149,17 +175,13 @@ const ReservationManagement = ({ allowCancel = true }) => {
       return
     }
 
-    const reservationIds = (resData || []).map(r => r.id)
+    const reservationIds = uniqueIds((resData || []).map(r => r.id))
     let paxRes = []
     if (reservationIds.length > 0) {
-      const { data: paxResData } = await supabase
-        .from('passageiros_reserva')
-        .select('id, reserva_id, numero_assento, passageiro_id, presente, notificado_sucesso, is_guide')
-        .in('reserva_id', reservationIds)
-      paxRes = paxResData || []
+      paxRes = await fetchPassengerReservationsByReservationIds(reservationIds)
     }
 
-    const passengerIds = Array.from(new Set((paxRes || []).map(p => p.passageiro_id).filter(Boolean)))
+    const passengerIds = uniqueIds((paxRes || []).map(p => p.passageiro_id))
     let passengers = []
     if (passengerIds.length > 0) {
       passengers = await fetchPassengersByIds(passengerIds)

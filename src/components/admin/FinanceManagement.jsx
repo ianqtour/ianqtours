@@ -86,6 +86,75 @@ const FinanceManagement = () => {
     return date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
   }
 
+  const chunkArray = (items, size = 50) => {
+    const chunks = []
+    for (let i = 0; i < items.length; i += size) {
+      chunks.push(items.slice(i, i + size))
+    }
+    return chunks
+  }
+
+  const uniqueIds = (items) => Array.from(new Set((items || []).map((item) => String(item || '').trim()).filter(Boolean)))
+
+  const fetchPlansWithInstallments = async ({ excursionId, reservationIds, passengerIds }) => {
+    const plansById = new Map()
+    const installmentsByPlanId = new Map()
+
+    const planSelect = 'id, reserva_id, passageiro_id, excursao_id, valor_creditos'
+    const reservationChunks = chunkArray(uniqueIds(reservationIds))
+    const passengerChunks = chunkArray(uniqueIds(passengerIds))
+
+    if (excursionId && passengerChunks.length > 0) {
+      for (const chunk of passengerChunks) {
+        const { data, error } = await supabase
+          .from('finance_payment_plans')
+          .select(planSelect)
+          .eq('excursao_id', excursionId)
+          .in('passageiro_id', chunk)
+
+        if (error) throw error
+        ;(data || []).forEach((plan) => {
+          plansById.set(String(plan.id), plan)
+        })
+      }
+    } else if (reservationChunks.length > 0) {
+      for (const chunk of reservationChunks) {
+        const { data, error } = await supabase
+          .from('finance_payment_plans')
+          .select(planSelect)
+          .in('reserva_id', chunk)
+
+        if (error) throw error
+        ;(data || []).forEach((plan) => {
+          plansById.set(String(plan.id), plan)
+        })
+      }
+    }
+
+    const planIds = Array.from(plansById.keys())
+    const planIdChunks = chunkArray(planIds)
+
+    for (const chunk of planIdChunks) {
+      const { data, error } = await supabase
+        .from('finance_installments')
+        .select('id, plano_id, valor, status')
+        .in('plano_id', chunk)
+
+      if (error) throw error
+      ;(data || []).forEach((installment) => {
+        const planId = String(installment.plano_id)
+        const current = installmentsByPlanId.get(planId) || []
+        current.push(installment)
+        installmentsByPlanId.set(planId, current)
+      })
+    }
+
+    return Array.from(plansById.values()).map((plan) => ({
+      ...plan,
+      finance_installments: installmentsByPlanId.get(String(plan.id)) || [],
+    }))
+  }
+
   const getStatusFromDate = (dateStr, currentStatus) => {
     if (currentStatus === 'pago') return 'pago'
     if (!dateStr) return 'pendente'
@@ -161,32 +230,16 @@ const FinanceManagement = () => {
       const { data: resData, error: resError } = await query
       if (resError) throw resError
 
-      const reservationIds = (resData || []).map(r => r.id)
-      const passengerIds = (resData || []).flatMap(res => (res.passageiros_reserva || []).map(p => p.passageiro_id))
+      const reservationIds = uniqueIds((resData || []).map(r => r.id))
+      const passengerIds = uniqueIds((resData || []).flatMap(res => (res.passageiros_reserva || []).map(p => p.passageiro_id)))
       
       const plansMap = new Map()
-      if (reservationIds.length > 0) {
-        let plansQuery = supabase
-          .from('finance_payment_plans')
-          .select(`
-            *,
-            finance_installments (*)
-          `)
-
-        if (selectedExcursionId) {
-          // Se tiver excursão selecionada, busca todos os planos dela para esses passageiros
-          // Isso resolve casos onde o passageiro foi movido de reserva/ônibus
-          plansQuery = plansQuery
-            .eq('excursao_id', selectedExcursionId)
-            .in('passageiro_id', passengerIds)
-        } else {
-          // Fallback para busca por reserva
-          plansQuery = plansQuery.in('reserva_id', reservationIds)
-        }
-
-        const { data: allPlans, error: plansError } = await plansQuery
-        
-        if (plansError) throw plansError
+      if ((selectedExcursionId && passengerIds.length > 0) || reservationIds.length > 0) {
+        const allPlans = await fetchPlansWithInstallments({
+          excursionId: selectedExcursionId,
+          reservationIds,
+          passengerIds,
+        })
 
         if (allPlans) {
           allPlans.forEach(plan => {
