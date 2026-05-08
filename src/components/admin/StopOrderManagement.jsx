@@ -32,7 +32,6 @@ const StopOrderManagement = () => {
   const fetchParadasOrder = async () => {
     setLoading(true);
     try {
-      // Try to get from paradas_ordem table first
       const { data: ordemData, error: ordemError } = await supabase
         .from('paradas_ordem')
         .select('*')
@@ -40,34 +39,8 @@ const StopOrderManagement = () => {
 
       if (ordemError) throw ordemError;
 
-      if (ordemData && ordemData.length > 0) {
-        setParadas(ordemData);
-        setOriginalParadas(ordemData);
-      } else {
-        // Fallback: get from enum and initialize
-        const { data, error } = await supabase.rpc('get_enum_values', { p_enum_name: 'public.paradas' });
-        if (error) throw error;
-        
-        const values = (data || []).map((x, idx) => ({
-          parada: x?.value,
-          posicao: idx + 1
-        })).filter(p => p.parada);
-
-        // Save initial order to table
-        if (values.length > 0) {
-          const { error: insertError } = await supabase
-            .from('paradas_ordem')
-            .upsert(values.map(v => ({
-              parada: v.parada,
-              posicao: v.posicao
-            })), { onConflict: 'parada' });
-
-          if (insertError) console.error('Erro ao inicializar ordem:', insertError);
-        }
-
-        setParadas(values);
-        setOriginalParadas(values);
-      }
+      setParadas(ordemData || []);
+      setOriginalParadas(ordemData || []);
     } catch (error) {
       console.error('Erro ao buscar paradas:', error);
       toast({
