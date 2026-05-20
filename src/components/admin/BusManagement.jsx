@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, Edit, Bus, MessageCircle, ExternalLink, Copy, Check } from 'lucide-react';
+import { Plus, Trash2, Edit, Bus, MessageCircle, ExternalLink, Copy, Check, MapPin } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Select,
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabase'
+import BusStopOrderModal from './BusStopOrderModal';
 
 const BusManagement = () => {
   const [buses, setBuses] = useState([]);
@@ -28,8 +29,8 @@ const BusManagement = () => {
     totalSeats: ''
   });
   const { toast } = useToast();
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [stopModalOpen, setStopModalOpen] = useState(false);
+  const [selectedBus, setSelectedBus] = useState(null);
 
   useEffect(() => {
     loadBuses();
@@ -154,6 +155,20 @@ const BusManagement = () => {
           });
         }
         await supabase.from('assentos_onibus').insert(allSeats);
+
+        // Copiar a ordem padrão de paradas para este novo ônibus
+        const { data: defaultStops } = await supabase
+          .from('paradas_ordem')
+          .select('parada, posicao');
+          
+        if (defaultStops && defaultStops.length > 0) {
+          const busStops = defaultStops.map(stop => ({
+            onibus_id: newBus.id,
+            parada: stop.parada,
+            posicao: stop.posicao
+          }));
+          await supabase.from('onibus_paradas').insert(busStops);
+        }
       }
 
       await loadBuses()
@@ -181,23 +196,6 @@ const BusManagement = () => {
     });
     setEditingId(bus.id);
     setIsAdding(true);
-  };
-
-  const requestDelete = (id) => {
-    setConfirmDeleteId(id)
-    setConfirmOpen(true)
-  };
-
-  const handleDelete = async () => {
-    if (!confirmDeleteId) return
-    await supabase.from('onibus').delete().eq('id', confirmDeleteId)
-    await loadBuses()
-    toast({
-      title: "Ônibus Excluído",
-      description: "O ônibus foi removido.",
-    });
-    setConfirmOpen(false)
-    setConfirmDeleteId(null)
   };
 
   const handleCancel = () => {
@@ -315,6 +313,15 @@ const BusManagement = () => {
                       <span className="text-green-400">{getAvailableSeats(bus)}</span>
                     </div>
                   </div>
+                  <Button
+                    onClick={() => { setSelectedBus(bus); setStopModalOpen(true); }}
+                    size="sm"
+                    variant="outline"
+                    className="w-full border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 hover:text-indigo-300 mb-2"
+                  >
+                    <MapPin className="mr-2 h-4 w-4" />
+                    Configurar Paradas
+                  </Button>
                   <div className="flex gap-2">
                     <Button
                       onClick={() => handleEdit(bus)}
@@ -323,14 +330,6 @@ const BusManagement = () => {
                     >
                       <Edit className="mr-2 h-4 w-4" />
                       Editar
-                    </Button>
-                    <Button
-                      onClick={() => requestDelete(bus.id)}
-                      size="sm"
-                      className="flex-1 bg-white text-red-600 border border-red-600 hover:bg-red-50"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Excluir
                     </Button>
                   </div>
                   <Button
@@ -476,20 +475,14 @@ const BusManagement = () => {
           </form>
         </motion.div>
       )}
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="bg-[#0F172A] text-white">
-          <DialogHeader>
-            <DialogTitle className="text-base sm:text-lg">Confirmar exclusão</DialogTitle>
-            <DialogDescription className="text-white/80 text-sm">
-              Essa ação não pode ser desfeita. Tem certeza que deseja excluir este ônibus?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex-row gap-2 sm:gap-2">
-            <Button onClick={() => setConfirmOpen(false)} className="flex-1 bg-white text-[#0F172A] hover:bg-gray-100 text-sm sm:text-base">Cancelar</Button>
-            <Button onClick={handleDelete} className="flex-1 bg-red-600 text-white hover:bg-red-700 text-sm sm:text-base">Confirmar exclusão</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      
+      {selectedBus && (
+        <BusStopOrderModal
+          open={stopModalOpen}
+          onOpenChange={setStopModalOpen}
+          bus={selectedBus}
+        />
+      )}
     </div>
   );
 };

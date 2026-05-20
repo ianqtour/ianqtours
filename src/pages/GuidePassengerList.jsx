@@ -40,6 +40,24 @@ const GuidePassengerList = () => {
 
   const fetchParadasOrder = async () => {
     try {
+      // 1. Tentar buscar a ordem específica deste ônibus
+      const { data: onibusData, error: onibusError } = await supabase
+        .from('onibus_paradas')
+        .select('parada, posicao')
+        .eq('onibus_id', busId)
+        .order('posicao', { ascending: true });
+
+      if (onibusError) {
+        console.error('Erro ao buscar onibus_paradas:', onibusError);
+      }
+
+      if (onibusData && onibusData.length > 0) {
+        const values = onibusData.map(x => x.parada).filter(Boolean);
+        setParadasOrder(values);
+        return;
+      }
+
+      // 2. Fallback: buscar a ordem global
       const { data: ordemData, error: ordemError } = await supabase
         .from('paradas_ordem')
         .select('parada, posicao')
