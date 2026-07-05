@@ -70,7 +70,7 @@ const BusManagement = () => {
   };
 
   const loadExcursions = async () => {
-    const { data } = await supabase.from('excursoes').select('id, nome')
+    const { data } = await supabase.from('excursoes').select('id, nome').eq('status', 'active')
     setExcursions((data || []).map(e => ({ id: e.id, name: e.nome })))
   };
 
@@ -389,6 +389,7 @@ const BusManagement = () => {
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="VAN">VAN</SelectItem>
                     <SelectItem value="Micro-ônibus">Micro-ônibus</SelectItem>
                     <SelectItem value="Ônibus">Ônibus</SelectItem>
                     <SelectItem value="Ônibus Leito">Ônibus Leito</SelectItem>
@@ -420,7 +421,7 @@ const BusManagement = () => {
                   <SelectTrigger className="bg-white/10 border-white/20 text-white">
                     <SelectValue placeholder="Selecione a excursão" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[200px] overflow-y-auto">
                     {excursions.map(excursion => (
                       <SelectItem key={excursion.id} value={excursion.id}>
                         {excursion.name}
@@ -441,7 +442,9 @@ const BusManagement = () => {
                     <SelectValue placeholder="Selecione o total" />
                   </SelectTrigger>
                   <SelectContent>
-                    {formData.name === 'Micro-ônibus' ? (
+                    {formData.name === 'VAN' ? (
+                      <SelectItem value="20">20</SelectItem>
+                    ) : formData.name === 'Micro-ônibus' ? (
                       <SelectItem value="30">30</SelectItem>
                     ) : formData.name === 'Ônibus Leito' ? (
                       <SelectItem value="43">43</SelectItem>
