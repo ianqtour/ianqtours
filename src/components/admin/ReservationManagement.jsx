@@ -741,7 +741,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
               <SelectTrigger className="bg-white/10 border-white/20 text-white">
                 <SelectValue placeholder="Filtrar por excursão" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[200px] overflow-y-auto">
                 {excursions.map(e => (
                   <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>
                 ))}
@@ -753,7 +753,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
               <SelectTrigger className="bg-white/10 border-white/20 text-white">
                 <SelectValue placeholder="Filtrar por ônibus" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[200px] overflow-y-auto">
                 {buses.filter(b => String(b.excursionId) === String(selectedExcursionId)).map(b => (
                   <SelectItem key={b.id} value={String(b.id)}>{b.identification || b.name}</SelectItem>
                 ))}

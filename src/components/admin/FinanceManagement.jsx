@@ -1022,7 +1022,7 @@ const FinanceManagement = () => {
               <SelectTrigger className="bg-white/10 border-white/20 text-white">
                 <SelectValue placeholder="Filtrar por excursão" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[200px] overflow-y-auto">
                 <SelectItem value="all">Todas as excursões</SelectItem>
                 {excursions.map(e => (
                   <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>
@@ -1035,7 +1035,7 @@ const FinanceManagement = () => {
               <SelectTrigger className="bg-white/10 border-white/20 text-white">
                 <SelectValue placeholder="Filtrar por ônibus" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[200px] overflow-y-auto">
                 <SelectItem value="all">Todos os ônibus</SelectItem>
                 {buses.map(b => (
                   <SelectItem key={b.id} value={String(b.id)}>{b.identificacao || `Ônibus ${b.id}`}</SelectItem>
