@@ -43,7 +43,7 @@ const GuidePassengerList = () => {
       // 1. Tentar buscar a ordem específica deste ônibus
       const { data: onibusData, error: onibusError } = await supabase
         .from('onibus_paradas')
-        .select('parada, posicao')
+        .select('parada, posicao, ativo')
         .eq('onibus_id', busId)
         .order('posicao', { ascending: true });
 
@@ -52,7 +52,7 @@ const GuidePassengerList = () => {
       }
 
       if (onibusData && onibusData.length > 0) {
-        const values = onibusData.map(x => x.parada).filter(Boolean);
+        const values = onibusData.filter(x => x.ativo !== false).map(x => x.parada).filter(Boolean);
         setParadasOrder(values);
         return;
       }

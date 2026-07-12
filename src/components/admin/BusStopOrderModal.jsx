@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { MapPin, ArrowUp, ArrowDown, Save, Loader2, RotateCcw, GripVertical, Info, Plus } from 'lucide-react';
+import { MapPin, ArrowUp, ArrowDown, Save, Loader2, Eye, EyeOff, GripVertical, Info, Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -27,14 +27,13 @@ const BusStopOrderModal = ({ open, onOpenChange, bus }) => {
 
   useEffect(() => {
     // Check if order has changed
-    const changed = JSON.stringify(paradas.map(p => p.parada)) !== JSON.stringify(originalParadas.map(p => p.parada));
+    const changed = JSON.stringify(paradas.map(p => ({ parada: p.parada, ativo: p.ativo }))) !== JSON.stringify(originalParadas.map(p => ({ parada: p.parada, ativo: p.ativo })));
     setHasChanges(changed);
   }, [paradas, originalParadas]);
 
   const fetchBusStops = async () => {
     setLoading(true);
     try {
-      // 1. Tentar buscar da onibus_paradas
       const { data: onibusData, error: onibusError } = await supabase
         .from('onibus_paradas')
         .select('*')
@@ -43,22 +42,35 @@ const BusStopOrderModal = ({ open, onOpenChange, bus }) => {
 
       if (onibusError) throw onibusError;
 
-      if (onibusData && onibusData.length > 0) {
-        setParadas(onibusData);
-        setOriginalParadas(onibusData);
-      } else {
-        // 2. Fallback: buscar da paradas_ordem global
-        const { data: globalData, error: globalError } = await supabase
-          .from('paradas_ordem')
-          .select('parada, posicao')
-          .order('posicao', { ascending: true });
+      const { data: globalData, error: globalError } = await supabase
+        .from('paradas_ordem')
+        .select('parada, posicao')
+        .order('posicao', { ascending: true });
         
-        if (globalError) throw globalError;
+      if (globalError) throw globalError;
 
+      if (onibusData && onibusData.length > 0) {
+        // Encontrar paradas globais que não estão na onibusData
+        const onibusParadaNames = new Set(onibusData.map(p => p.parada));
+        const missingGlobalStops = (globalData || [])
+          .filter(p => !onibusParadaNames.has(p.parada))
+          .map((p, index) => ({
+            onibus_id: bus.id,
+            parada: p.parada,
+            posicao: onibusData.length + index + 1,
+            ativo: false
+          }));
+
+        const combinedData = [...onibusData, ...missingGlobalStops];
+
+        setParadas(combinedData);
+        setOriginalParadas(combinedData);
+      } else {
         const initialData = (globalData || []).map(p => ({
           onibus_id: bus.id,
           parada: p.parada,
-          posicao: p.posicao
+          posicao: p.posicao,
+          ativo: true
         }));
 
         setParadas(initialData);
@@ -92,14 +104,10 @@ const BusStopOrderModal = ({ open, onOpenChange, bus }) => {
     setParadas(updated);
   };
 
-  const removeItem = (index) => {
+  const toggleAtivo = (index) => {
     const newParadas = [...paradas];
-    newParadas.splice(index, 1);
-    const updated = newParadas.map((p, idx) => ({
-      ...p,
-      posicao: idx + 1
-    }));
-    setParadas(updated);
+    newParadas[index].ativo = newParadas[index].ativo === undefined ? false : !newParadas[index].ativo;
+    setParadas(newParadas);
   };
 
   const handleSave = async () => {
@@ -117,6 +125,7 @@ const BusStopOrderModal = ({ open, onOpenChange, bus }) => {
           onibus_id: bus.id,
           parada: p.parada,
           posicao: p.posicao,
+          ativo: p.ativo === undefined ? true : p.ativo
         }));
 
         const { error } = await supabase
@@ -167,7 +176,8 @@ const BusStopOrderModal = ({ open, onOpenChange, bus }) => {
     const novoItem = {
       onibus_id: bus.id,
       parada: formattedStop,
-      posicao: maxPos + 1
+      posicao: maxPos + 1,
+      ativo: true
     };
 
     setParadas([...paradas, novoItem]);
@@ -269,7 +279,7 @@ const BusStopOrderModal = ({ open, onOpenChange, bus }) => {
               <div className="bg-[#ECAE62]/10 border border-[#ECAE62]/30 rounded-xl p-3 flex items-start gap-3">
                 <Info className="h-5 w-5 text-[#ECAE62] flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-white/80">
-                  <p>Remova as paradas que não fazem parte do trajeto deste ônibus ou altere a ordem. Isso não afetará a lista global.</p>
+                  <p>Desative as paradas que não fazem parte do trajeto deste ônibus ou altere a ordem. Isso não afetará a lista global.</p>
                 </div>
               </div>
 
@@ -294,7 +304,7 @@ const BusStopOrderModal = ({ open, onOpenChange, bus }) => {
                           flex items-center gap-2 px-3 py-2 transition-all cursor-grab active:cursor-grabbing select-none
                           ${draggedIndex === index ? 'opacity-50 bg-[#ECAE62]/5' : ''}
                           ${dragOverIndex === index && draggedIndex !== index ? 'bg-[#ECAE62]/10 border-t-2 border-t-[#ECAE62]' : ''}
-                          hover:bg-white/5
+                          ${parada.ativo === false ? 'opacity-50' : 'hover:bg-white/5'}
                         `}
                       >
                         <div className="text-white/30 hover:text-white/60 transition-colors">
@@ -333,10 +343,11 @@ const BusStopOrderModal = ({ open, onOpenChange, bus }) => {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => removeItem(index)}
-                            className="h-8 w-8 text-red-400/60 hover:text-red-400 hover:bg-red-400/10"
+                            onClick={() => toggleAtivo(index)}
+                            title={parada.ativo === false ? 'Ativar parada' : 'Desativar parada'}
+                            className={`h-8 w-8 ${parada.ativo === false ? 'text-white/40 hover:text-white' : 'text-red-400/60 hover:text-red-400 hover:bg-red-400/10'}`}
                           >
-                            <RotateCcw className="h-4 w-4 rotate-45" /> {/* Excluir icon improvisado */}
+                            {parada.ativo === false ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </Button>
                         </div>
                       </motion.div>
