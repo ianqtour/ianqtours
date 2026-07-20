@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, MapPin, Calendar, Bus, CheckCircle, X, Phone, User, ArrowLeft, Loader2 } from 'lucide-react';
+import { Search, MapPin, Calendar, Bus, CheckCircle, X, Phone, User, ArrowLeft, Loader2, DollarSign, UserMinus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
@@ -27,6 +27,7 @@ const GuidePassengerList = () => {
   const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'present', 'pending'
   const [updatingId, setUpdatingId] = useState(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [confirmModalType, setConfirmModalType] = useState('presence'); // 'presence' or 'noshow'
   const [selectedPassenger, setSelectedPassenger] = useState(null);
 
   const [paradasOrder, setParadasOrder] = useState([]);
@@ -127,13 +128,39 @@ const GuidePassengerList = () => {
 
         if (paxError) throw paxError;
 
+        // 5.5 Fetch Payment Plans
+        const { data: plansData } = await supabase
+          .from('finance_payment_plans')
+          .select('id, reserva_id, passageiro_id')
+          .in('reserva_id', reservationIds);
+          
+        let installmentsData = [];
+        if (plansData && plansData.length > 0) {
+          const planIds = plansData.map(p => p.id);
+          const { data: instData } = await supabase
+            .from('finance_installments')
+            .select('plano_id, status')
+            .in('plano_id', planIds);
+          if (instData) installmentsData = instData;
+        }
+
         // 6. Merge Data
         const mergedPassengers = paxResData.map(pr => {
           const details = paxData.find(p => p.id === pr.passageiro_id);
+          
+          const plan = plansData?.find(p => p.passageiro_id === pr.passageiro_id) || 
+                       plansData?.find(p => p.reserva_id === pr.reserva_id);
+          let paymentPending = false;
+          if (plan) {
+            const insts = installmentsData.filter(i => i.plano_id === plan.id);
+            paymentPending = insts.some(i => i.status === 'pendente' || i.status === 'atrasado');
+          }
+
           return {
-            ...pr, // contains id (pax_res id), seat number, presence
+            ...pr, // contains id (pax_res id), seat number, presence, no_show
             details: details || {}, // contains name, phone, parada
-            seatNumber: Number(pr.numero_assento)
+            seatNumber: Number(pr.numero_assento),
+            paymentPending
           };
         }).sort((a, b) => a.seatNumber - b.seatNumber);
 
@@ -156,6 +183,13 @@ const GuidePassengerList = () => {
 
   const handleToggleClick = (passenger) => {
     setSelectedPassenger(passenger);
+    setConfirmModalType('presence');
+    setConfirmModalOpen(true);
+  };
+
+  const handleNoShowClick = (passenger) => {
+    setSelectedPassenger(passenger);
+    setConfirmModalType('noshow');
     setConfirmModalOpen(true);
   };
 
@@ -169,26 +203,45 @@ const GuidePassengerList = () => {
     setConfirmModalOpen(false); // Close modal immediately
 
     try {
-      const newStatus = !currentStatus;
-      const { error } = await supabase
-        .from('passageiros_reserva')
-        .update({ presente: newStatus })
-        .eq('id', paxResId);
+      if (confirmModalType === 'presence') {
+        const newStatus = !currentStatus;
+        const { error } = await supabase
+          .from('passageiros_reserva')
+          .update({ presente: newStatus, no_show: false }) // Reset no_show when toggling presence
+          .eq('id', paxResId);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      // Update local state
-      setPassengers(prev => 
-        prev.map(p => p.id === paxResId ? { ...p, presente: newStatus } : p)
-      );
+        setPassengers(prev => 
+          prev.map(p => p.id === paxResId ? { ...p, presente: newStatus, no_show: false } : p)
+        );
 
-      toast({
-        title: newStatus ? 'Presença Confirmada' : 'Presença Cancelada',
-        description: 'Status atualizado com sucesso.',
-        duration: 2000,
-        className: newStatus ? 'bg-green-500 text-white border-none' : 'bg-red-500 text-white border-none'
-      });
+        toast({
+          title: newStatus ? 'Presença Confirmada' : 'Presença Cancelada',
+          description: 'Status atualizado com sucesso.',
+          duration: 2000,
+          className: newStatus ? 'bg-green-500 text-white border-none' : 'bg-red-500 text-white border-none'
+        });
+      } else if (confirmModalType === 'noshow') {
+        const newNoShow = !selectedPassenger.no_show;
+        const { error } = await supabase
+          .from('passageiros_reserva')
+          .update({ no_show: newNoShow, presente: false }) // Reset presence when marking no-show
+          .eq('id', paxResId);
 
+        if (error) throw error;
+
+        setPassengers(prev => 
+          prev.map(p => p.id === paxResId ? { ...p, no_show: newNoShow, presente: false } : p)
+        );
+
+        toast({
+          title: newNoShow ? 'No-Show Marcado' : 'No-Show Removido',
+          description: 'Status atualizado com sucesso.',
+          duration: 2000,
+          className: 'bg-red-500 text-white border-none'
+        });
+      }
     } catch (error) {
       console.error('Error toggling presence:', error);
       toast({
@@ -254,8 +307,8 @@ const GuidePassengerList = () => {
 
     if (!matchesSearch) return false;
 
-    if (filterStatus === 'present') return p.presente;
-    if (filterStatus === 'pending') return !p.presente;
+    if (filterStatus === 'present') return p.presente && !p.no_show;
+    if (filterStatus === 'pending') return !p.presente && !p.no_show;
     
     return true;
   });
@@ -343,7 +396,7 @@ const GuidePassengerList = () => {
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10 text-xs">
                 <span className="text-white/60">Pendentes:</span>
                 <span className="text-[#ECAE62] font-bold">
-                  {passengers.filter(p => !p.presente).length}
+                  {passengers.filter(p => !p.presente && !p.no_show).length}
                 </span>
                 <span className="text-white/40">/</span>
                 <span className="text-white font-bold">{passengers.length}</span>
@@ -440,7 +493,9 @@ const GuidePassengerList = () => {
                             flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center font-bold text-xl
                             ${p.presente 
                               ? 'bg-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.5)]' 
-                              : 'bg-[#ECAE62]/10 text-[#ECAE62] border border-[#ECAE62]/30'
+                              : p.no_show 
+                                ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)]'
+                                : 'bg-[#ECAE62]/10 text-[#ECAE62] border border-[#ECAE62]/30'
                             }
                           `}>
                             {p.seatNumber}
@@ -471,6 +526,37 @@ const GuidePassengerList = () => {
                           
                           <Button
                             size="icon"
+                            variant="ghost"
+                            className={`
+                              h-10 w-10 rounded-full transition-all border border-white/10
+                              ${p.paymentPending 
+                                ? 'bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30' 
+                                : 'bg-green-500/20 text-green-500 hover:bg-green-500/30'
+                              }
+                            `}
+                            title={p.paymentPending ? 'Pagamento Pendente' : 'Pagamento Ok'}
+                          >
+                            <DollarSign className="h-5 w-5" />
+                          </Button>
+
+                          <Button
+                            size="icon"
+                            onClick={() => handleNoShowClick(p)}
+                            disabled={updatingId === p.id}
+                            className={`
+                              h-10 w-10 rounded-full transition-all
+                              ${p.no_show 
+                                ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20' 
+                                : 'bg-white/10 hover:bg-white/20 text-white/50 hover:text-white border border-white/10'
+                              }
+                            `}
+                            title="Não Compareceu (No-Show)"
+                          >
+                            <UserMinus className="h-5 w-5" />
+                          </Button>
+
+                          <Button
+                            size="icon"
                             onClick={() => handleToggleClick(p)}
                             disabled={updatingId === p.id}
                             className={`
@@ -480,6 +566,7 @@ const GuidePassengerList = () => {
                                 : 'bg-white/10 hover:bg-white/20 text-white/50 hover:text-white border border-white/10'
                               }
                             `}
+                            title="Confirmar Presença"
                           >
                             {updatingId === p.id ? (
                               <Loader2 className="h-5 w-5 animate-spin" />
@@ -504,13 +591,18 @@ const GuidePassengerList = () => {
         <DialogContent className="bg-[#0F172A] border-white/20 text-white">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">
-              {selectedPassenger?.presente ? 'Cancelar Presença?' : 'Confirmar Presença?'}
+              {confirmModalType === 'presence' 
+                ? (selectedPassenger?.presente ? 'Cancelar Presença?' : 'Confirmar Presença?')
+                : (selectedPassenger?.no_show ? 'Desmarcar No-Show?' : 'Marcar como No-Show?')}
             </DialogTitle>
             <DialogDescription className="text-white/70">
-              {selectedPassenger?.presente 
-                ? `Deseja remover a confirmação de presença de ${getFullName(selectedPassenger?.details?.nome)}?`
-                : `Deseja confirmar a presença de ${getFullName(selectedPassenger?.details?.nome)}?`
-              }
+              {confirmModalType === 'presence'
+                ? (selectedPassenger?.presente 
+                  ? `Deseja remover a confirmação de presença de ${getFullName(selectedPassenger?.details?.nome)}?`
+                  : `Deseja confirmar a presença de ${getFullName(selectedPassenger?.details?.nome)}?`)
+                : (selectedPassenger?.no_show
+                  ? `Deseja remover o status de não comparecimento (no-show) de ${getFullName(selectedPassenger?.details?.nome)}?`
+                  : `Deseja confirmar que ${getFullName(selectedPassenger?.details?.nome)} não compareceu (no-show)?`)}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row gap-2 sm:gap-0">
@@ -523,9 +615,15 @@ const GuidePassengerList = () => {
             </Button>
             <Button 
               onClick={confirmTogglePresence}
-              className={`flex-1 ${selectedPassenger?.presente ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white border-none`}
+              className={`flex-1 ${
+                confirmModalType === 'presence' 
+                  ? (selectedPassenger?.presente ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600')
+                  : (selectedPassenger?.no_show ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-red-500 hover:bg-red-600')
+              } text-white border-none`}
             >
-              {selectedPassenger?.presente ? 'Remover' : 'Confirmar'}
+              {confirmModalType === 'presence'
+                ? (selectedPassenger?.presente ? 'Remover' : 'Confirmar')
+                : (selectedPassenger?.no_show ? 'Desmarcar' : 'Confirmar No-Show')}
             </Button>
           </DialogFooter>
         </DialogContent>
