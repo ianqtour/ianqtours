@@ -86,7 +86,7 @@ const FinanceManagement = () => {
     return date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
   }
 
-  const chunkArray = (items, size = 50) => {
+  const chunkArray = (items, size = 200) => {
     const chunks = []
     for (let i = 0; i < items.length; i += size) {
       chunks.push(items.slice(i, i + size))
@@ -102,23 +102,19 @@ const FinanceManagement = () => {
 
     const planSelect = 'id, reserva_id, passageiro_id, excursao_id, valor_creditos'
     const reservationChunks = chunkArray(uniqueIds(reservationIds))
-    const passengerChunks = chunkArray(uniqueIds(passengerIds))
 
-    if (excursionId && passengerChunks.length > 0) {
-      for (const chunk of passengerChunks) {
-        const { data, error } = await supabase
-          .from('finance_payment_plans')
-          .select(planSelect)
-          .eq('excursao_id', excursionId)
-          .in('passageiro_id', chunk)
+    if (excursionId) {
+      const { data, error } = await supabase
+        .from('finance_payment_plans')
+        .select(planSelect)
+        .eq('excursao_id', excursionId)
 
-        if (error) throw error
-        ;(data || []).forEach((plan) => {
-          plansById.set(String(plan.id), plan)
-        })
-      }
+      if (error) throw error
+      ;(data || []).forEach((plan) => {
+        plansById.set(String(plan.id), plan)
+      })
     } else if (reservationChunks.length > 0) {
-      for (const chunk of reservationChunks) {
+      await Promise.all(reservationChunks.map(async (chunk) => {
         const { data, error } = await supabase
           .from('finance_payment_plans')
           .select(planSelect)
@@ -128,13 +124,13 @@ const FinanceManagement = () => {
         ;(data || []).forEach((plan) => {
           plansById.set(String(plan.id), plan)
         })
-      }
+      }))
     }
 
     const planIds = Array.from(plansById.keys())
     const planIdChunks = chunkArray(planIds)
 
-    for (const chunk of planIdChunks) {
+    await Promise.all(planIdChunks.map(async (chunk) => {
       const { data, error } = await supabase
         .from('finance_installments')
         .select('id, plano_id, valor, status')
@@ -147,7 +143,7 @@ const FinanceManagement = () => {
         current.push(installment)
         installmentsByPlanId.set(planId, current)
       })
-    }
+    }))
 
     return Array.from(plansById.values()).map((plan) => ({
       ...plan,
@@ -211,7 +207,7 @@ const FinanceManagement = () => {
         .select(`
           id, excursao_id, onibus_id, status, criado_em, excursoes(horario_partida),
           passageiros_reserva (
-            id, numero_assento, passageiro_id, presente, is_guide,
+            id, numero_assento, passageiro_id, presente, is_guide, nf_emitida,
             passageiros (id, nome, telefone, creditos)
           )
         `)
@@ -303,7 +299,8 @@ const FinanceManagement = () => {
             hasOverdue: plan.hasOverdue,
             totalAmount: plan.totalAmount,
             paidAmount: plan.paidAmount,
-            overdueAmount: plan.overdueAmount
+            overdueAmount: plan.overdueAmount,
+            nfEmitida: paxRes.nf_emitida === true
           }
         }).sort((a, b) => a.seatNumber - b.seatNumber)
 
@@ -353,6 +350,30 @@ const FinanceManagement = () => {
     const safeDay = Math.min(dd, lastDayOfMonth)
     const res = new Date(year, month, safeDay)
     return `${res.getFullYear()}-${String(res.getMonth() + 1).padStart(2, '0')}-${String(res.getDate()).padStart(2, '0')}`
+  }
+
+  const handleToggleNF = async (passageirosReservaId, newValue) => {
+    try {
+      const { error } = await supabase
+        .from('passageiros_reserva')
+        .update({ nf_emitida: newValue })
+        .eq('id', passageirosReservaId)
+
+      if (error) throw error
+      
+      setBookings(prev => prev.map(b => ({
+        ...b,
+        passengers: b.passengers.map(p => 
+          p.id === passageirosReservaId 
+            ? { ...p, nfEmitida: newValue }
+            : p
+        )
+      })))
+
+      toast({ title: 'Sucesso', description: `Nota fiscal marcada como ${newValue ? 'emitida' : 'não emitida'}.` })
+    } catch (err) {
+      toast({ title: 'Erro', description: 'Falha ao atualizar status da nota fiscal.', variant: 'destructive' })
+    }
   }
 
   const handleOpenPlan = (booking, passenger) => {
@@ -996,6 +1017,8 @@ const FinanceManagement = () => {
         if (statusFilter === 'no_plan') return p.hasPlan === false
         if (statusFilter === 'overdue') return p.hasOverdue === true
         if (statusFilter === 'in_days') return p.hasOverdue === false
+        if (statusFilter === 'has_nf') return p.nfEmitida === true
+        if (statusFilter === 'no_nf') return p.nfEmitida === false
         return true
       })
       .map(p => ({ ...p, booking }))
@@ -1054,6 +1077,8 @@ const FinanceManagement = () => {
                 <SelectItem value="no_plan">Sem plano</SelectItem>
                 <SelectItem value="in_days">Em dias</SelectItem>
                 <SelectItem value="overdue">Inadimplentes</SelectItem>
+                <SelectItem value="has_nf">Com NF</SelectItem>
+                <SelectItem value="no_nf">Sem NF</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1148,6 +1173,14 @@ const FinanceManagement = () => {
                               {Math.round(Number(p.progressPercent || 0))}%
                             </span>
                           </div>
+                        </div>
+                        <div className="flex items-center justify-between w-full mt-3 px-1 border-t border-white/5 pt-2">
+                          <span className="text-white/80 text-xs font-medium">NF Emitida?</span>
+                          <Switch 
+                            checked={p.nfEmitida} 
+                            onCheckedChange={(checked) => handleToggleNF(p.id, checked)} 
+                            className="data-[state=checked]:bg-green-500 scale-75 sm:scale-90" 
+                          />
                         </div>
                       </>
                     ) : (

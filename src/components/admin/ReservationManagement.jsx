@@ -83,7 +83,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
     return s
   }
 
-  const chunkArray = (items, size = 50) => {
+  const chunkArray = (items, size = 200) => {
     const chunks = []
     for (let i = 0; i < items.length; i += size) {
       chunks.push(items.slice(i, i + size))
@@ -95,36 +95,34 @@ const ReservationManagement = ({ allowCancel = true }) => {
 
   const fetchPassengerReservationsByReservationIds = async (reservationIds) => {
     const chunks = chunkArray(uniqueIds(reservationIds))
-    let result = []
-
-    for (const chunk of chunks) {
+    
+    const results = await Promise.all(chunks.map(async (chunk) => {
       const { data, error } = await supabase
         .from('passageiros_reserva')
         .select('id, reserva_id, numero_assento, passageiro_id, presente, notificado_sucesso, is_guide')
         .in('reserva_id', chunk)
 
       if (error) throw error
-      result = result.concat(data || [])
-    }
+      return data || []
+    }))
 
-    return result
+    return results.flat()
   }
 
   const fetchPassengersByIds = async (ids) => {
     const chunks = chunkArray(uniqueIds(ids))
-    let result = []
 
-    for (const chunk of chunks) {
+    const results = await Promise.all(chunks.map(async (chunk) => {
       const { data, error } = await supabase
         .from('passageiros')
         .select('id, nome, telefone, foto_url, data_nascimento')
         .in('id', chunk)
 
       if (error) throw error
-      result = result.concat(data || [])
-    }
+      return data || []
+    }))
 
-    return result
+    return results.flat()
   }
 
   useEffect(() => {
