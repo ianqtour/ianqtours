@@ -59,7 +59,6 @@ const Dashboard = () => {
   const [excursionFilter, setExcursionFilter] = useState('all');
   const [projectionInterval, setProjectionInterval] = useState('monthly'); // 'daily', 'weekly', 'monthly'
   const [allInstallments, setAllInstallments] = useState([]);
-  const [allFeedbacks, setAllFeedbacks] = useState([]);
   const [allPassengers, setAllPassengers] = useState([]);
   const [birthdays, setBirthdays] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -73,7 +72,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     processData();
-  }, [allInstallments, allFeedbacks, allPassengers, excursionFilter, projectionInterval]);
+  }, [allInstallments, allPassengers, excursionFilter, projectionInterval]);
 
   useEffect(() => {
     let filtered = tableData;
@@ -92,14 +91,11 @@ const Dashboard = () => {
   }, [searchTerm, statusFilter, tableData]);
 
   const uniqueExcursions = Array.from(new Set(allInstallments.map(i => i.excursao_nome))).filter(Boolean).sort();
-
   const processData = () => {
     let filteredInsts = allInstallments || [];
-    let filteredFeedbacks = allFeedbacks || [];
 
     if (excursionFilter !== 'all') {
       filteredInsts = (allInstallments || []).filter(i => i.excursao_nome === excursionFilter);
-      filteredFeedbacks = (allFeedbacks || []).filter(f => f.excursoes?.nome === excursionFilter);
     }
 
     const now = new Date();
@@ -112,25 +108,12 @@ const Dashboard = () => {
     // Unique passengers in filtered set
     const uniquePaxIds = new Set(filteredInsts.map(i => i.plano_id));
 
-    // NPS Calculation
-    let promoters = 0, neutrals = 0, detractors = 0;
-    filteredFeedbacks?.forEach(f => {
-      if (f.rating === 5) promoters++;
-      else if (f.rating === 4) neutrals++;
-      else detractors++;
-    });
-    const totalFeedbacks = filteredFeedbacks?.length || 0;
-    const npsScore = totalFeedbacks > 0 
-      ? Math.round(((promoters - detractors) / totalFeedbacks) * 100) 
-      : 0;
-
     setStats({
       totalExcursions: excursionFilter === 'all' ? Array.from(new Set(allInstallments.map(i => i.excursao_nome))).length : 1,
       totalPassengers: uniquePaxIds.size,
       totalOverdueClients: overduePaxIds.size,
       totalOverdueAmount: overdueAmount,
-      npsScore,
-      npsDistribution: { promoters, neutrals, detractors }
+      totalOverdueAmount: overdueAmount
     });
 
     // 2. Process Chart Data (Monthly Comparison)
@@ -319,12 +302,6 @@ const Dashboard = () => {
       if (instError) throw instError;
       setAllInstallments(installments || []);
 
-      // 2. Fetch Feedbacks for NPS
-      const { data: feedbacks } = await supabase
-        .from('feedbacks')
-        .select('rating, excursoes(nome)');
-      setAllFeedbacks(feedbacks || []);
-
       // 3. Fetch Passenger Birthdays via Reservation Passengers
       // We need data_nascimento for ALL passengers in ALL reservations
       const { data: paxReservas, error: paxError } = await supabase
@@ -432,12 +409,11 @@ const Dashboard = () => {
         </div>
 
         {/* Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard title="Excursões" value={stats.totalExcursions} icon={TrendingUp} color="emerald" />
           <MetricCard title="Passageiros" value={stats.totalPassengers} icon={Users} color="blue" />
           <MetricCard title="Inadimplentes" value={stats.totalOverdueClients} icon={AlertCircle} color="red" />
           <MetricCard title="Valor Atrasado" value={fmt(stats.totalOverdueAmount)} icon={DollarSign} color="orange" />
-          <MetricCard title="NPS Score" value={stats.npsScore} icon={Star} color="purple" subValue="Excelente" />
         </div>
 
         {/* Charts Grid - First Row (Main Comparison & Projection) */}

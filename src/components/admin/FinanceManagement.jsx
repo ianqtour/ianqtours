@@ -182,7 +182,7 @@ const FinanceManagement = () => {
   }
 
   const loadExcursions = async () => {
-    const { data: exData } = await supabase.from('excursoes').select('id, nome, preco, horario_partida')
+    const { data: exData } = await supabase.from('excursoes').select('id, nome, preco, horario_partida').neq('status', 'cancelled')
     setExcursions((exData || []).map(e => ({ id: e.id, name: e.nome, price: Number(e.preco || 0), date: e.horario_partida })))
   }
 

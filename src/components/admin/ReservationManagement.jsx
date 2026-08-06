@@ -134,7 +134,7 @@ const ReservationManagement = ({ allowCancel = true }) => {
   }, [selectedExcursionId, selectedBusId]);
 
   const loadExcursionsAndBuses = async () => {
-    const { data: exData } = await supabase.from('excursoes').select('id, nome, destino, horario_partida, interestadual')
+    const { data: exData } = await supabase.from('excursoes').select('id, nome, destino, horario_partida, interestadual').neq('status', 'cancelled')
     const { data: busData } = await supabase.from('onibus').select('id, nome, identificacao, excursao_id')
     setExcursions((exData || []).map(e => ({ id: e.id, name: e.nome, destination: e.destino, date: e.horario_partida, interestadual: !!e.interestadual })))
     setBuses((busData || []).map(b => ({ id: b.id, name: b.nome, identification: b.identificacao || '', excursionId: b.excursao_id })))

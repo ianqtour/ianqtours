@@ -8,7 +8,7 @@ import BusManagement from '@/components/admin/BusManagement';
 import ReservationManagement from '@/components/admin/ReservationManagement';
 import FinanceManagement from '@/components/admin/FinanceManagement';
 import PassengerManagement from '@/components/admin/PassengerManagement';
-import FeedbackManagement from '@/components/admin/FeedbackManagement';
+
 import AccommodationManagement from '@/components/admin/AccommodationManagement';
 
 const AdminPanel = ({ onLogout, onBack, onStartReservation, role = 'admin' }) => {
@@ -64,7 +64,7 @@ const AdminPanel = ({ onLogout, onBack, onStartReservation, role = 'admin' }) =>
 
           <Tabs value={tab} onValueChange={setTab} className="w-full">
             {role === 'admin' ? (
-              <TabsList className="grid w-full grid-cols-7 bg-white/5 mb-4 md:mb-8">
+              <TabsList className="grid w-full grid-cols-6 bg-white/5 mb-4 md:mb-8">
                 <TabsTrigger value="excursions" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
                   <MapPin className="h-4 w-4 md:hidden" />
                   <span className="hidden md:inline">Excursões</span>
@@ -85,10 +85,7 @@ const AdminPanel = ({ onLogout, onBack, onStartReservation, role = 'admin' }) =>
                   <Users className="h-4 w-4 md:hidden" />
                   <span className="hidden md:inline">Passageiros</span>
                 </TabsTrigger>
-                <TabsTrigger value="feedbacks" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
-                  <Star className="h-4 w-4 md:hidden" />
-                  <span className="hidden md:inline">Feedbacks</span>
-                </TabsTrigger>
+
                 <TabsTrigger value="hospedagem" className="data-[state=active]:bg-[#ECAE62] data-[state=active]:text-white text-xs sm:text-sm">
                   <Hotel className="h-4 w-4 md:hidden" />
                   <span className="hidden md:inline">Hospedagem</span>
@@ -130,11 +127,7 @@ const AdminPanel = ({ onLogout, onBack, onStartReservation, role = 'admin' }) =>
               </TabsContent>
             )}
 
-            {role === 'admin' && (
-              <TabsContent value="feedbacks">
-                <FeedbackManagement />
-              </TabsContent>
-            )}
+
 
             {role === 'admin' && (
               <TabsContent value="hospedagem">
