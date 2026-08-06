@@ -1147,7 +1147,7 @@ const FinanceManagement = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className={`bg-white/5 rounded-xl p-3 md:p-4 border flex flex-col gap-3 transition-colors ${p.nfEmitida ? "border-green-500/50 bg-green-500/5" : "border-white/10"}`}
+                className={`bg-white/5 rounded-xl p-3 md:p-4 border-2 flex flex-col gap-3 transition-colors ${p.nfEmitida ? "border-green-500/80 bg-green-500/20" : "border-red-500/80 bg-red-500/20"}`}
               >
                 <div className="flex items-center gap-3 w-full">
                   <div className="flex flex-col items-center text-center w-full">
